@@ -1,6 +1,7 @@
 use rand::{CryptoRng, RngCore};
 
 mod arbitrary;
+pub mod strategies;
 
 pub use arbitrary::Arbitrary;
 
