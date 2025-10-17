@@ -5,3 +5,19 @@ version = 4
 [[package]]
 name = "estoa-arbitrary"
 version = "0.0.1"
+
+[[package]]
+name = "estoa-cli"
+version = "0.0.1"
+
+[[package]]
+name = "estoa-codec"
+version = "0.0.1"
+
+[[package]]
+name = "estoa-crdts"
+version = "0.0.1"
+
+[[package]]
+name = "estoa-storage"
+version = "0.0.1"
