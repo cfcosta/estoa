@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use rand::{CryptoRng, RngCore};
 
 use crate::{Arbitrary, arbitrary};
@@ -45,6 +47,10 @@ impl<R: RngCore + CryptoRng> Generator<R> {
         self.iteration
     }
 
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
     pub fn accept<T>(&mut self, value: T) -> Generation<T> {
         let generation = Generation::Accepted {
             iteration: self.iteration,
@@ -63,6 +69,45 @@ impl<R: RngCore + CryptoRng> Generator<R> {
         };
         self.iteration += 1;
         generation
+    }
+
+    pub fn recurse<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(&mut Generator<R>) -> T,
+    {
+        let mut guard = DepthGuard::new(self);
+        f(&mut guard)
+    }
+}
+
+struct DepthGuard<'a, R: RngCore + CryptoRng> {
+    generator: &'a mut Generator<R>,
+}
+
+impl<'a, R: RngCore + CryptoRng> DepthGuard<'a, R> {
+    fn new(generator: &'a mut Generator<R>) -> Self {
+        generator.depth += 1;
+        Self { generator }
+    }
+}
+
+impl<'a, R: RngCore + CryptoRng> Drop for DepthGuard<'a, R> {
+    fn drop(&mut self) {
+        self.generator.depth -= 1;
+    }
+}
+
+impl<'a, R: RngCore + CryptoRng> Deref for DepthGuard<'a, R> {
+    type Target = Generator<R>;
+
+    fn deref(&self) -> &Self::Target {
+        self.generator
+    }
+}
+
+impl<'a, R: RngCore + CryptoRng> DerefMut for DepthGuard<'a, R> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.generator
     }
 }
 
@@ -122,5 +167,22 @@ mod tests {
         let items: Vec<u8> = vec::not_empty(&mut generator).take();
 
         assert_ne!(items.len(), 0);
+    }
+
+    #[test]
+    fn test_recurse_tracks_depth() {
+        let mut generator = Generator::build(ThreadRng::default());
+        assert_eq!(generator.depth(), 0);
+
+        let result: usize = generator.recurse(|outer| {
+            assert_eq!(outer.depth(), 1);
+            outer.recurse(|inner| {
+                assert_eq!(inner.depth(), 2);
+                42
+            })
+        });
+
+        assert_eq!(result, 42);
+        assert_eq!(generator.depth(), 0);
     }
 }
