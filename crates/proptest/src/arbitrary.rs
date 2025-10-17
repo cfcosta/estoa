@@ -13,8 +13,6 @@ use rand::{
     distr::{SampleString, StandardUniform},
 };
 
-use crate::strategies::Generation;
-
 pub(crate) const STRING_MAX_LEN: usize = 128;
 pub(crate) const COLLECTION_MAX_LEN: usize = 32;
 
@@ -29,12 +27,6 @@ where
         Self: Sized,
     {
         Self::arbitrary(&mut rand::rng())
-    }
-
-    fn generate<R: RngCore + CryptoRng + ?Sized>(
-        rng: &mut R,
-    ) -> Generation<Self> {
-        Generation::Accepted(Self::arbitrary(rng))
     }
 }
 
