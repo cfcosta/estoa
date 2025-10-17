@@ -77,7 +77,8 @@ fn test_proptest_handles_recursive_generators(
         generator.recurse(|nested| {
             let mut outer = Vec::new();
             for _ in 0..3 {
-                let inner = strategies::vec::not_empty(nested).take();
+                let inner =
+                    strategies::vec::not_empty(nested).take();
                 outer.push(inner);
             }
             nested.accept(outer)
