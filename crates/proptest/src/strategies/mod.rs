@@ -32,14 +32,20 @@ pub struct Generator<R> {
     pub rng: R,
     iteration: usize,
     depth: usize,
+    recursion_limit: usize,
 }
 
 impl<R: RngCore + CryptoRng> Generator<R> {
     pub fn build(rng: R) -> Self {
+        Self::build_with_limit(rng, usize::MAX)
+    }
+
+    pub fn build_with_limit(rng: R, recursion_limit: usize) -> Self {
         Self {
             rng,
             iteration: 0,
             depth: 0,
+            recursion_limit,
         }
     }
 
@@ -86,6 +92,12 @@ struct DepthGuard<'a, R: RngCore + CryptoRng> {
 
 impl<'a, R: RngCore + CryptoRng> DepthGuard<'a, R> {
     fn new(generator: &'a mut Generator<R>) -> Self {
+        if generator.depth >= generator.recursion_limit {
+            panic!(
+                "#[proptest] strategy recursion exceeded limit of {}",
+                generator.recursion_limit,
+            );
+        }
         generator.depth += 1;
         Self { generator }
     }
@@ -152,7 +164,8 @@ mod tests {
 
     #[test]
     fn test_not_equal() {
-        let mut generator = Generator::build(ThreadRng::default());
+        let mut generator =
+            Generator::build_with_limit(ThreadRng::default(), usize::MAX);
 
         match different::<u8, _>(&mut generator) {
             Generation::Accepted { value: (a, b), .. } => assert_ne!(a, b),
@@ -162,7 +175,8 @@ mod tests {
 
     #[test]
     fn test_vec_not_empty() {
-        let mut generator = Generator::build(ThreadRng::default());
+        let mut generator =
+            Generator::build_with_limit(ThreadRng::default(), usize::MAX);
 
         let items: Vec<u8> = vec::not_empty(&mut generator).take();
 
@@ -171,7 +185,8 @@ mod tests {
 
     #[test]
     fn test_recurse_tracks_depth() {
-        let mut generator = Generator::build(ThreadRng::default());
+        let mut generator =
+            Generator::build_with_limit(ThreadRng::default(), usize::MAX);
         assert_eq!(generator.depth(), 0);
 
         let result: usize = generator.recurse(|outer| {

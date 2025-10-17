@@ -4,9 +4,12 @@ use syn::{
     Expr,
     FnArg,
     ItemFn,
+    Lit,
+    MetaNameValue,
+    Token,
     Type,
-    parse::Nothing,
     parse_macro_input,
+    punctuated::Punctuated,
     spanned::Spanned,
 };
 
@@ -24,7 +27,23 @@ use syn::{
 /// ) {}
 /// ```
 pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
-    parse_macro_input!(attr as Nothing);
+    let attr_args = parse_macro_input!(attr with Punctuated::<MetaNameValue, Token![,]>::parse_terminated);
+    let mut config = MacroConfig::default();
+    let mut errors: Option<syn::Error> = None;
+
+    for name_value in attr_args {
+        if let Err(err) = config.apply(name_value) {
+            match &mut errors {
+                Some(existing) => existing.combine(err),
+                None => errors = Some(err),
+            }
+        }
+    }
+
+    if let Some(err) = errors {
+        return err.to_compile_error().into();
+    }
+
     let mut function = parse_macro_input!(item as ItemFn);
 
     if let Some(async_token) = &function.sig.asyncness {
@@ -125,6 +144,7 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    let outer_attrs = other_attrs.clone();
     function.attrs = other_attrs;
 
     let vis = function.vis.clone();
@@ -146,19 +166,19 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
             Some(expr) => {
                 quote! {
                     let #binding_ident: #ty = {
-                        const __ESTOA_MAX_ATTEMPTS: usize = ::estoa_proptest::strategies::MAX_STRATEGY_ATTEMPTS;
                         let mut __estoa_attempts = 0usize;
                         loop {
                             match (#expr)(&mut generator) {
                                 ::estoa_proptest::strategies::Generation::Accepted { value, .. } => break value,
                                 ::estoa_proptest::strategies::Generation::Rejected { iteration, depth, .. } => {
                                     __estoa_attempts += 1;
-                                    if __estoa_attempts >= __ESTOA_MAX_ATTEMPTS {
+                                    if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
                                         panic!(
-                                            "strategy rejected value after {} attempts (iteration {}, depth {})",
+                                            "#[proptest] strategy rejected value after {} attempts (iteration {}, depth {}; limit {})",
                                             __estoa_attempts,
                                             iteration,
                                             depth,
+                                            __ESTOA_REJECTION_LIMIT,
                                         );
                                     }
                                     continue;
@@ -187,7 +207,10 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     } else if uses_strategies {
         quote! {
-            let mut generator = ::estoa_proptest::strategies::Generator::build(::estoa_proptest::rng());
+            let mut generator = ::estoa_proptest::strategies::Generator::build_with_limit(
+                ::estoa_proptest::rng(),
+                __ESTOA_RECURSION_LIMIT,
+            );
         }
     } else {
         quote! {
@@ -195,17 +218,141 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    let cases_tokens = config.cases_tokens();
+    let recursion_limit_tokens = config.recursion_limit_tokens();
+    let rejection_limit_tokens = config.rejection_limit_tokens();
+
     let output = quote! {
         #( #doc_attrs )*
+        #( #outer_attrs )*
         #[test]
         #vis fn #original_ident() {
-            #outer_rng_setup
-            #( #bindings )*
-            #inner_ident( #( #binding_idents ),* );
+            const __ESTOA_CASES: usize = #cases_tokens;
+            const __ESTOA_RECURSION_LIMIT: usize = #recursion_limit_tokens;
+            const __ESTOA_REJECTION_LIMIT: usize = #rejection_limit_tokens;
+            for __estoa_case in 0..__ESTOA_CASES {
+                let _ = __estoa_case;
+                #outer_rng_setup
+                #( #bindings )*
+                #inner_ident( #( #binding_idents ),* );
+            }
         }
 
         #function
     };
 
     output.into()
+}
+
+#[derive(Default)]
+struct MacroConfig {
+    cases: Option<usize>,
+    recursion_limit: Option<usize>,
+    rejection_limit: Option<usize>,
+}
+
+impl MacroConfig {
+    fn apply(&mut self, name_value: MetaNameValue) -> syn::Result<()> {
+        let ident = name_value.path.get_ident().cloned().ok_or_else(|| {
+            syn::Error::new(name_value.path.span(), "expected identifier")
+        })?;
+        let key = ident.to_string();
+        let value = parse_usize(&name_value.value, &key)?;
+        if value == 0 {
+            return Err(syn::Error::new(
+                name_value.value.span(),
+                format!("`{}` must be at least 1", key),
+            ));
+        }
+
+        match key.as_str() {
+            "cases" => {
+                if self.cases.replace(value).is_some() {
+                    Err(syn::Error::new(
+                        ident.span(),
+                        "`cases` specified more than once",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            "recursion_limit" => {
+                if self.recursion_limit.replace(value).is_some() {
+                    Err(syn::Error::new(
+                        ident.span(),
+                        "`recursion_limit` specified more than once",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            "rejection_limit" => {
+                if self.rejection_limit.replace(value).is_some() {
+                    Err(syn::Error::new(
+                        ident.span(),
+                        "`rejection_limit` specified more than once",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Err(syn::Error::new(
+                ident.span(),
+                format!("unknown #[proptest] option `{}`", key),
+            )),
+        }
+    }
+
+    fn cases_tokens(&self) -> proc_macro2::TokenStream {
+        let value = self.cases.unwrap_or(10_000);
+        quote! { #value }
+    }
+
+    fn recursion_limit_tokens(&self) -> proc_macro2::TokenStream {
+        match self.recursion_limit {
+            Some(value) => quote! { #value },
+            None => quote! { ::core::usize::MAX },
+        }
+    }
+
+    fn rejection_limit_tokens(&self) -> proc_macro2::TokenStream {
+        match self.rejection_limit {
+            Some(value) => quote! { #value },
+            None => {
+                quote! { ::estoa_proptest::strategies::MAX_STRATEGY_ATTEMPTS }
+            }
+        }
+    }
+}
+
+fn parse_usize(expr: &Expr, key: &str) -> syn::Result<usize> {
+    match expr {
+        Expr::Lit(lit) => match &lit.lit {
+            Lit::Int(int) => {
+                if !int.suffix().is_empty() {
+                    return Err(syn::Error::new(
+                        int.span(),
+                        format!(
+                            "`{}` must be an unsuffixed integer literal",
+                            key
+                        ),
+                    ));
+                }
+                int.base10_parse::<usize>().map_err(|_| {
+                    syn::Error::new(
+                        int.span(),
+                        format!("`{}` is too large to fit in usize", key),
+                    )
+                })
+            }
+            _ => Err(syn::Error::new(
+                lit.span(),
+                format!("`{}` must be an integer literal", key),
+            )),
+        },
+        other => Err(syn::Error::new(
+            other.span(),
+            format!("`{}` must be an integer literal", key),
+        )),
+    }
 }

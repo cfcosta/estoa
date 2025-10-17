@@ -1,3 +1,8 @@
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::{Mutex, OnceLock},
+};
+
 use estoa_proptest::{Arbitrary, proptest, strategies};
 use rand::Rng;
 
@@ -16,18 +21,18 @@ impl Arbitrary for Bounded {
     }
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_bounded_value_is_within_range(bounded: Bounded) {
     assert!(bounded.lower <= bounded.upper);
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_proptest_supports_multiple_arguments(value: u8, text: String) {
     assert!(value <= u8::MAX);
     assert!(text.capacity() >= text.len());
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_proptest_supports_generic_arguments(val: Option<u8>) {
     match val {
         Some(v) => assert!(v <= u8::MAX),
@@ -35,14 +40,14 @@ fn test_proptest_supports_generic_arguments(val: Option<u8>) {
     }
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_proptest_supports_strategy_annotations(
     #[strategy(strategies::vec::not_empty)] items: Vec<u8>,
 ) {
     assert!(!items.is_empty());
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_proptest_supports_mixed_arguments(
     #[strategy(strategies::vec::not_empty)] items: Vec<u8>,
     value: u8,
@@ -51,7 +56,7 @@ fn test_proptest_supports_mixed_arguments(
     assert!(value <= u8::MAX);
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_proptest_retries_until_strategy_accepts(
     #[strategy(|generator: &mut strategies::Generator<rand::rngs::ThreadRng>| {
         if generator.iteration() == 0 {
@@ -66,7 +71,7 @@ fn test_proptest_retries_until_strategy_accepts(
     assert_eq!(value, 42);
 }
 
-#[proptest]
+#[proptest(cases = 32)]
 fn test_proptest_handles_recursive_generators(
     #[strategy(|generator: &mut strategies::Generator<rand::rngs::ThreadRng>| {
         generator.recurse(|nested| {
@@ -82,4 +87,69 @@ fn test_proptest_handles_recursive_generators(
 ) {
     assert_eq!(nested.len(), 3);
     assert!(nested.iter().all(|inner| !inner.is_empty()));
+}
+
+fn case_counter() -> &'static Mutex<usize> {
+    static CASE_COUNTER: OnceLock<Mutex<usize>> = OnceLock::new();
+    CASE_COUNTER.get_or_init(|| Mutex::new(0))
+}
+
+#[ignore]
+#[proptest(cases = 8)]
+fn test_proptest_cases_runs_body_multiple_times() {
+    let mut guard = case_counter().lock().expect("case counter poisoned");
+    *guard += 1;
+}
+
+#[test]
+fn test_cases_configuration_runs_expected_iterations() {
+    {
+        let mut guard = case_counter().lock().expect("case counter poisoned");
+        *guard = 0;
+    }
+    test_proptest_cases_runs_body_multiple_times();
+    let guard = case_counter().lock().expect("case counter poisoned");
+    assert_eq!(*guard, 8);
+}
+
+#[ignore]
+#[should_panic(expected = "limit 2")]
+#[proptest(rejection_limit = 2)]
+fn test_proptest_respects_rejection_limit_panics(
+    #[strategy(|generator: &mut strategies::Generator<rand::rngs::ThreadRng>| {
+        generator.reject(0u8)
+    })]
+    _value: u8,
+) {
+    unreachable!("strategy should always reject");
+}
+
+#[test]
+fn test_rejection_limit_panics_after_expected_attempts() {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        test_proptest_respects_rejection_limit_panics();
+    }));
+    assert!(result.is_err(), "rejection limit did not trigger panic");
+}
+
+#[ignore]
+#[should_panic(expected = "strategy recursion exceeded limit")]
+#[proptest(recursion_limit = 1)]
+fn test_proptest_enforces_recursion_limit(
+    #[strategy(|generator: &mut strategies::Generator<rand::rngs::ThreadRng>| {
+        generator.recurse(|outer| {
+            outer.recurse(|inner| inner.accept(1usize))
+        })
+    })]
+    _value: usize,
+) {
+    unreachable!("recursive strategy should exceed limit first");
+}
+
+#[test]
+fn test_recursion_limit_panics_when_exceeded() {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        test_proptest_enforces_recursion_limit();
+    }));
+    assert!(result.is_err(), "recursion limit did not trigger panic");
 }

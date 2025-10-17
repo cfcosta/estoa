@@ -1,11 +1,12 @@
 use std::{
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque},
+    hint::black_box,
     rc::Rc,
     sync::Arc,
 };
 
-use estoa_proptest::{Arbitrary, arbitrary, random};
-use rand::{CryptoRng, RngCore, rngs::ThreadRng};
+use estoa_proptest::{Arbitrary, proptest, random};
+use rand::{CryptoRng, RngCore};
 
 #[allow(unused)]
 struct User {
@@ -79,26 +80,43 @@ fn test_generic_random() {
     ) = random();
 }
 
-#[test]
-fn test_primitives_arbitrary() {
-    let mut rng = ThreadRng::default();
-
-    let _: () = arbitrary(&mut rng);
-    let _: bool = arbitrary(&mut rng);
-    let _: char = arbitrary(&mut rng);
-    let _: u8 = arbitrary(&mut rng);
-    let _: u16 = arbitrary(&mut rng);
-    let _: u32 = arbitrary(&mut rng);
-    let _: u64 = arbitrary(&mut rng);
-    let _: u128 = arbitrary(&mut rng);
-    let _: usize = arbitrary(&mut rng);
-    let _: i8 = arbitrary(&mut rng);
-    let _: i16 = arbitrary(&mut rng);
-    let _: i32 = arbitrary(&mut rng);
-    let _: i64 = arbitrary(&mut rng);
-    let _: i128 = arbitrary(&mut rng);
-    let _: isize = arbitrary(&mut rng);
-    let _: f32 = arbitrary(&mut rng);
-    let _: f64 = arbitrary(&mut rng);
-    let _: String = arbitrary(&mut rng);
+#[proptest(cases = 1)]
+fn test_primitives_arbitrary(
+    unit: (),
+    boolean: bool,
+    character: char,
+    u8_value: u8,
+    u16_value: u16,
+    u32_value: u32,
+    u64_value: u64,
+    u128_value: u128,
+    usize_value: usize,
+    i8_value: i8,
+    i16_value: i16,
+    i32_value: i32,
+    i64_value: i64,
+    i128_value: i128,
+    isize_value: isize,
+    f32_value: f32,
+    f64_value: f64,
+    string_value: String,
+) {
+    black_box(&unit);
+    black_box(&boolean);
+    black_box(&character);
+    black_box(&u8_value);
+    black_box(&u16_value);
+    black_box(&u32_value);
+    black_box(&u64_value);
+    black_box(&u128_value);
+    black_box(&usize_value);
+    black_box(&i8_value);
+    black_box(&i16_value);
+    black_box(&i32_value);
+    black_box(&i64_value);
+    black_box(&i128_value);
+    black_box(&isize_value);
+    black_box(&f32_value);
+    black_box(&f64_value);
+    assert!(string_value.capacity() >= string_value.len());
 }
