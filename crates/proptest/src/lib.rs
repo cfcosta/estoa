@@ -6,14 +6,25 @@ use std::{
     sync::Arc,
 };
 
-pub use rand::{CryptoRng, RngCore};
 use rand::{
+    CryptoRng,
     Rng,
+    RngCore,
     distr::{SampleString, StandardUniform},
 };
 
-const STRING_MAX_LEN: usize = 1024;
-const COLLECTION_MAX_LEN: usize = 1024;
+const STRING_MAX_LEN: usize = 128;
+const COLLECTION_MAX_LEN: usize = 32;
+
+pub fn random<T: Arbitrary>() -> T {
+    T::random()
+}
+
+pub fn arbitrary<T: Arbitrary, R: RngCore + CryptoRng + ?Sized>(
+    rng: &mut R,
+) -> T {
+    T::arbitrary(rng)
+}
 
 pub trait Arbitrary
 where
@@ -93,7 +104,7 @@ where
     E: Arbitrary,
 {
     fn arbitrary<R: RngCore + CryptoRng + ?Sized>(rng: &mut R) -> Self {
-        if rng.random::<bool>() {
+        if arbitrary(rng) {
             Ok(T::arbitrary(rng))
         } else {
             Err(E::arbitrary(rng))
@@ -192,9 +203,11 @@ where
     fn arbitrary<R: RngCore + CryptoRng + ?Sized>(rng: &mut R) -> Self {
         let len = rng.random_range(0..=COLLECTION_MAX_LEN);
         let mut map = HashMap::with_capacity(len);
+
         for _ in 0..len {
             map.insert(K::arbitrary(rng), V::arbitrary(rng));
         }
+
         map
     }
 }
@@ -206,9 +219,11 @@ where
     fn arbitrary<R: RngCore + CryptoRng + ?Sized>(rng: &mut R) -> Self {
         let len = rng.random_range(0..=COLLECTION_MAX_LEN);
         let mut set = BTreeSet::new();
+
         for _ in 0..len {
             set.insert(T::arbitrary(rng));
         }
+
         set
     }
 }
@@ -221,9 +236,11 @@ where
     fn arbitrary<R: RngCore + CryptoRng + ?Sized>(rng: &mut R) -> Self {
         let len = rng.random_range(0..=COLLECTION_MAX_LEN);
         let mut map = BTreeMap::new();
+
         for _ in 0..len {
             map.insert(K::arbitrary(rng), V::arbitrary(rng));
         }
+
         map
     }
 }
