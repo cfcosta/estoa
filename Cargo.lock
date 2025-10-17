@@ -9,13 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
-name = "estoa-arbitrary"
-version = "0.0.1"
-dependencies = [
- "rand",
-]
-
-[[package]]
 name = "estoa-cli"
 version = "0.0.1"
 
@@ -26,6 +19,13 @@ version = "0.0.1"
 [[package]]
 name = "estoa-crdts"
 version = "0.0.1"
+
+[[package]]
+name = "estoa-proptest"
+version = "0.0.1"
+dependencies = [
+ "rand",
+]
 
 [[package]]
 name = "estoa-storage"

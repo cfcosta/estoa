@@ -1,5 +1,6 @@
-use estoa_arbitrary::Arbitrary;
+use estoa_proptest::Arbitrary;
 
+#[allow(unused)]
 struct User {
     name: String,
     followers: u32,
