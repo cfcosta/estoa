@@ -2,6 +2,8 @@ use rand::{CryptoRng, RngCore};
 
 use crate::{Arbitrary, arbitrary};
 
+pub const MAX_STRATEGY_ATTEMPTS: usize = 64;
+
 pub enum Generation<T> {
     Accepted {
         iteration: usize,
@@ -39,20 +41,28 @@ impl<R: RngCore + CryptoRng> Generator<R> {
         }
     }
 
+    pub fn iteration(&self) -> usize {
+        self.iteration
+    }
+
     pub fn accept<T>(&mut self, value: T) -> Generation<T> {
-        Generation::Accepted {
+        let generation = Generation::Accepted {
             iteration: self.iteration,
             depth: self.depth,
             value,
-        }
+        };
+        self.iteration += 1;
+        generation
     }
 
     pub fn reject<T>(&mut self, value: T) -> Generation<T> {
-        Generation::Rejected {
+        let generation = Generation::Rejected {
             iteration: self.iteration,
             depth: self.depth,
             value,
-        }
+        };
+        self.iteration += 1;
+        generation
     }
 }
 

@@ -83,7 +83,7 @@
       in
       {
         packages.default = rustPlatform.buildRustPackage {
-          name = "estoa-cli";
+          name = "estoa";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
         };

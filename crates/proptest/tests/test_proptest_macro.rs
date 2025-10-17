@@ -1,4 +1,4 @@
-use estoa_proptest::{Arbitrary, proptest};
+use estoa_proptest::{Arbitrary, proptest, strategies};
 use rand::Rng;
 
 struct Bounded {
@@ -28,9 +28,40 @@ fn test_proptest_supports_multiple_arguments(value: u8, text: String) {
 }
 
 #[proptest]
-fn proptest_supports_generic_arguments(val: Option<u8>) {
+fn test_proptest_supports_generic_arguments(val: Option<u8>) {
     match val {
         Some(v) => assert!(v <= u8::MAX),
         None => {}
     }
+}
+
+#[proptest]
+fn test_proptest_supports_strategy_annotations(
+    #[strategy(strategies::vec::not_empty)] items: Vec<u8>,
+) {
+    assert!(!items.is_empty());
+}
+
+#[proptest]
+fn test_proptest_supports_mixed_arguments(
+    #[strategy(strategies::vec::not_empty)] items: Vec<u8>,
+    value: u8,
+) {
+    assert!(!items.is_empty());
+    assert!(value <= u8::MAX);
+}
+
+#[proptest]
+fn test_proptest_retries_until_strategy_accepts(
+    #[strategy(|generator: &mut strategies::Generator<rand::rngs::ThreadRng>| {
+        if generator.iteration() == 0 {
+            let discarded = estoa_proptest::arbitrary(&mut generator.rng);
+            generator.reject(discarded)
+        } else {
+            generator.accept(42u8)
+        }
+    })]
+    value: u8,
+) {
+    assert_eq!(value, 42);
 }

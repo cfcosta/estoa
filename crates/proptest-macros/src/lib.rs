@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
+    Expr,
     FnArg,
     ItemFn,
     Type,
@@ -10,6 +11,18 @@ use syn::{
 };
 
 #[proc_macro_attribute]
+/// Duplicate `#[strategy]` annotations on the same argument trigger a compile error.
+///
+/// ```compile_fail
+/// use estoa_proptest_macros::proptest;
+///
+/// #[proptest]
+/// fn duplicate_strategies(
+///     #[strategy(|_gen| todo!())]
+///     #[strategy(|_gen| todo!())]
+///     value: u8,
+/// ) {}
+/// ```
 pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
     parse_macro_input!(attr as Nothing);
     let mut function = parse_macro_input!(item as ItemFn);
@@ -50,11 +63,14 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     }
 
-    let inputs = function.sig.inputs.clone();
+    struct Argument {
+        ty: Type,
+        strategy: Option<Expr>,
+    }
 
-    let mut argument_types = Vec::<Type>::new();
+    let mut arguments = Vec::<Argument>::new();
 
-    for input in inputs.iter() {
+    for input in function.sig.inputs.iter_mut() {
         match input {
             FnArg::Receiver(receiver) => {
                 return syn::Error::new(
@@ -65,7 +81,35 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                 .into();
             }
             FnArg::Typed(pat_type) => {
-                argument_types.push((*pat_type.ty).clone());
+                let mut strategy_expr: Option<Expr> = None;
+                let mut retained_attrs = Vec::new();
+
+                for attr in pat_type.attrs.drain(..) {
+                    if attr.path().is_ident("strategy") {
+                        if strategy_expr.is_some() {
+                            return syn::Error::new(
+                                attr.span(),
+                                "#[strategy] cannot be specified more than once per argument",
+                            )
+                            .to_compile_error()
+                            .into();
+                        }
+
+                        match attr.parse_args::<Expr>() {
+                            Ok(expr) => strategy_expr = Some(expr),
+                            Err(err) => return err.to_compile_error().into(),
+                        }
+                    } else {
+                        retained_attrs.push(attr);
+                    }
+                }
+
+                pat_type.attrs = retained_attrs;
+
+                arguments.push(Argument {
+                    ty: (*pat_type.ty).clone(),
+                    strategy: strategy_expr,
+                });
             }
         }
     }
@@ -89,19 +133,62 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
     function.sig.ident = inner_ident.clone();
     function.vis = syn::Visibility::Inherited;
 
+    let uses_strategies = arguments.iter().any(|arg| arg.strategy.is_some());
     let mut bindings = Vec::new();
     let mut binding_idents = Vec::new();
 
-    for (index, ty) in argument_types.iter().enumerate() {
+    for (index, argument) in arguments.iter().enumerate() {
         let binding_ident = format_ident!("__estoa_proptest_binding_{index}");
         binding_idents.push(binding_ident.clone());
-        bindings.push(quote! {
-            let #binding_ident: #ty = ::estoa_proptest::arbitrary(&mut rng);
-        });
+        let ty = &argument.ty;
+
+        let binding_stmt = match &argument.strategy {
+            Some(expr) => {
+                quote! {
+                    let #binding_ident: #ty = {
+                        const __ESTOA_MAX_ATTEMPTS: usize = ::estoa_proptest::strategies::MAX_STRATEGY_ATTEMPTS;
+                        let mut __estoa_attempts = 0usize;
+                        loop {
+                            match (#expr)(&mut generator) {
+                                ::estoa_proptest::strategies::Generation::Accepted { value, .. } => break value,
+                                ::estoa_proptest::strategies::Generation::Rejected { iteration, depth, .. } => {
+                                    __estoa_attempts += 1;
+                                    if __estoa_attempts >= __ESTOA_MAX_ATTEMPTS {
+                                        panic!(
+                                            "strategy rejected value after {} attempts (iteration {}, depth {})",
+                                            __estoa_attempts,
+                                            iteration,
+                                            depth,
+                                        );
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                    };
+                }
+            }
+            None if uses_strategies => {
+                quote! {
+                    let #binding_ident: #ty = ::estoa_proptest::arbitrary(&mut generator.rng);
+                }
+            }
+            None => {
+                quote! {
+                    let #binding_ident: #ty = ::estoa_proptest::arbitrary(&mut rng);
+                }
+            }
+        };
+
+        bindings.push(binding_stmt);
     }
 
     let outer_rng_setup = if bindings.is_empty() {
         quote! {}
+    } else if uses_strategies {
+        quote! {
+            let mut generator = ::estoa_proptest::strategies::Generator::build(::estoa_proptest::rng());
+        }
     } else {
         quote! {
             let mut rng = ::estoa_proptest::rng();
