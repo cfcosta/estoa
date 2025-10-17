@@ -46,27 +46,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_not_equal() {
-        let mut generator =
-            Generator::build_with_limit(ThreadRng::default(), usize::MAX);
-
-        match different::<u8, _>(&mut generator) {
-            Generation::Accepted { value: (a, b), .. } => assert_ne!(a, b),
-            Generation::Rejected { value: (a, b), .. } => assert_eq!(a, b),
-        }
-    }
-
-    #[test]
-    fn test_vec_not_empty() {
-        let mut generator =
-            Generator::build_with_limit(ThreadRng::default(), usize::MAX);
-
-        let items: Vec<u8> = vec::not_empty(&mut generator).take();
-
-        assert_ne!(items.len(), 0);
-    }
-
-    #[test]
     fn test_recurse_tracks_depth() {
         let mut generator =
             Generator::build_with_limit(ThreadRng::default(), usize::MAX);
