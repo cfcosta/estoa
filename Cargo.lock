@@ -24,7 +24,17 @@ version = "0.0.1"
 name = "estoa-proptest"
 version = "0.0.1"
 dependencies = [
+ "estoa-proptest-macros",
  "rand",
+]
+
+[[package]]
+name = "estoa-proptest-macros"
+version = "0.0.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
