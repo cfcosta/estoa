@@ -1,0 +1,10 @@
+[toolchain]
+channel = "nightly"
+components = [
+  "clippy",
+  "llvm-tools-preview",
+  "miri",
+  "rust-analyzer",
+  "rust-src",
+  "rustfmt",
+]
