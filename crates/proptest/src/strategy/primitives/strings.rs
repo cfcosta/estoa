@@ -5,8 +5,11 @@ use rand::Rng;
 use super::{AnyChar, IntValueTree};
 use crate::{
     arbitrary::STRING_MAX_LEN,
-    strategies::{Generation, Generator},
-    strategy::{Strategy, ValueTree},
+    strategy::{
+        Strategy,
+        ValueTree,
+        runtime::{Generation, Generator},
+    },
 };
 
 fn build_drop_plan(len: usize) -> Vec<usize> {

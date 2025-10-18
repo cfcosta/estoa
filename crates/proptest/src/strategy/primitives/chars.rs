@@ -3,9 +3,9 @@ use std::ops::RangeInclusive;
 use rand::Rng;
 
 use super::integers::IntValueTree;
-use crate::{
-    strategies::{Generation, Generator},
-    strategy::Strategy,
+use crate::strategy::{
+    Strategy,
+    runtime::{Generation, Generator},
 };
 
 fn preferred_char(range: &RangeInclusive<char>) -> char {

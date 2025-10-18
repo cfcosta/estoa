@@ -5,9 +5,10 @@ use std::{
 };
 
 use super::vecs::{build_drop_plan, sample_length};
-use crate::{
-    strategies::{Generation, Generator, MAX_STRATEGY_ATTEMPTS},
-    strategy::{Strategy, ValueTree},
+use crate::strategy::{
+    Strategy,
+    ValueTree,
+    runtime::{Generation, Generator, MAX_STRATEGY_ATTEMPTS},
 };
 
 #[derive(Clone)]
@@ -704,12 +705,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        strategies::Generator,
-        strategy::{
-            ValueTree,
-            primitives::{AnyI32, IntValueTree},
-        },
+    use crate::strategy::{
+        ValueTree,
+        primitives::{AnyI32, IntValueTree},
+        runtime::Generator,
     };
 
     fn make_tree(value: i32, shrink_to: i32) -> IntValueTree<i32> {

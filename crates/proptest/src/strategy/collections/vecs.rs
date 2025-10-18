@@ -4,9 +4,10 @@ use std::{
 };
 
 use super::super::primitives::AnyUsize;
-use crate::{
-    strategies::{Generation, Generator},
-    strategy::{Strategy, ValueTree},
+use crate::strategy::{
+    Strategy,
+    ValueTree,
+    runtime::{Generation, Generator},
 };
 
 pub(crate) fn build_drop_plan(len: usize) -> Vec<usize> {
@@ -479,10 +480,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        strategies::Generator,
-        strategy::{AnyI32, ValueTree},
-    };
+    use crate::strategy::{AnyI32, ValueTree, runtime::Generator};
 
     #[test]
     fn vec_drop_plan_halves() {
@@ -587,10 +585,11 @@ mod tests {
             VecDequeStrategy::new(AnyI32::default(), 1usize..=3usize);
         let mut generator =
             Generator::build_with_limit(crate::rng(), usize::MAX);
-        let len = match strategy.new_tree(&mut generator) {
-            Generation::Accepted { value, .. } => value.current().len(),
+        let tree = match strategy.new_tree(&mut generator) {
+            Generation::Accepted { value, .. } => value,
             Generation::Rejected { .. } => panic!("unexpected rejection"),
         };
+        let len = tree.current().len();
         assert!((1..=3).contains(&len));
     }
 
@@ -600,10 +599,11 @@ mod tests {
             BinaryHeapStrategy::new(AnyI32::default(), 1usize..=3usize);
         let mut generator =
             Generator::build_with_limit(crate::rng(), usize::MAX);
-        let len = match strategy.new_tree(&mut generator) {
-            Generation::Accepted { value, .. } => value.current().len(),
+        let tree = match strategy.new_tree(&mut generator) {
+            Generation::Accepted { value, .. } => value,
             Generation::Rejected { .. } => panic!("unexpected rejection"),
         };
+        let len = tree.current().len();
         assert!((1..=3).contains(&len));
     }
 
@@ -612,10 +612,11 @@ mod tests {
         let mut strategy = VecStrategy::new(AnyI32::default(), 2usize..=4usize);
         let mut generator =
             Generator::build_with_limit(crate::rng(), usize::MAX);
-        let len = match strategy.new_tree(&mut generator) {
-            Generation::Accepted { value, .. } => value.current().len(),
+        let tree = match strategy.new_tree(&mut generator) {
+            Generation::Accepted { value, .. } => value,
             Generation::Rejected { .. } => panic!("unexpected rejection"),
         };
+        let len = tree.current().len();
         assert!((2..=4).contains(&len), "len out of range");
     }
 }

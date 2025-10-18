@@ -2,9 +2,10 @@ use core::cmp::Ordering;
 
 use rand::Rng;
 
-use crate::{
-    strategies::{Generation, Generator},
-    strategy::{Strategy, ValueTree},
+use crate::strategy::{
+    Strategy,
+    ValueTree,
+    runtime::{Generation, Generator},
 };
 
 const MAX_FLOAT_SIMPLIFY_STEPS: usize = 64;

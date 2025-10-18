@@ -1,8 +1,9 @@
 use rand::Rng;
 
-use crate::{
-    strategies::{Generation, Generator},
-    strategy::{Strategy, ValueTree},
+use crate::strategy::{
+    Strategy,
+    ValueTree,
+    runtime::{Generation, Generator},
 };
 
 pub struct BoolValueTree {

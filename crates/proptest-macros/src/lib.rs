@@ -173,11 +173,11 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 &mut #strategy_ident,
                                 &mut generator,
                             ) {
-                                ::estoa_proptest::strategies::Generation::Accepted { value, .. } => {
+                                ::estoa_proptest::strategy::runtime::Generation::Accepted { value, .. } => {
                                     generator.advance_iteration();
                                     break value;
                                 }
-                                ::estoa_proptest::strategies::Generation::Rejected { iteration, depth, .. } => {
+                                ::estoa_proptest::strategy::runtime::Generation::Rejected { iteration, depth, .. } => {
                                     generator.advance_iteration();
                                     __estoa_attempts += 1;
                                     if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
@@ -202,11 +202,11 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                         let mut __estoa_attempts = 0usize;
                         loop {
                             match ::estoa_proptest::strategy::runtime::from_arbitrary(&mut generator) {
-                                ::estoa_proptest::strategies::Generation::Accepted { value, .. } => {
+                                ::estoa_proptest::strategy::runtime::Generation::Accepted { value, .. } => {
                                     generator.advance_iteration();
                                     break value;
                                 }
-                                ::estoa_proptest::strategies::Generation::Rejected { iteration, depth, .. } => {
+                                ::estoa_proptest::strategy::runtime::Generation::Rejected { iteration, depth, .. } => {
                                     generator.advance_iteration();
                                     __estoa_attempts += 1;
                                     if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
@@ -234,7 +234,7 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     } else {
         quote! {
-            let mut generator = ::estoa_proptest::strategies::Generator::build_with_limit(
+            let mut generator = ::estoa_proptest::strategy::runtime::Generator::build_with_limit(
                 ::estoa_proptest::rng(),
                 __ESTOA_RECURSION_LIMIT,
             );
@@ -342,7 +342,7 @@ impl MacroConfig {
         match self.rejection_limit {
             Some(value) => quote! { #value },
             None => {
-                quote! { ::estoa_proptest::strategies::MAX_STRATEGY_ATTEMPTS }
+                quote! { ::estoa_proptest::strategy::runtime::MAX_STRATEGY_ATTEMPTS }
             }
         }
     }

@@ -8,8 +8,10 @@ use std::{
 use estoa_proptest::{
     Arbitrary,
     proptest,
-    strategies,
-    strategy::{AnyU8, Strategy, ValueTree, collections::VecStrategy},
+    strategy::{
+        runtime::{Generation, Generator},
+        *,
+    },
 };
 use rand::Rng;
 
@@ -104,8 +106,8 @@ impl Strategy for RetryStrategy {
 
     fn new_tree<R: rand::RngCore + rand::CryptoRng>(
         &mut self,
-        generator: &mut strategies::Generator<R>,
-    ) -> strategies::Generation<Self::Tree> {
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
         if !self.rejected {
             self.rejected = true;
             generator.reject(StaticTree::new(0))
@@ -131,8 +133,8 @@ impl Strategy for NestedVecStrategy {
 
     fn new_tree<R: rand::RngCore + rand::CryptoRng>(
         &mut self,
-        generator: &mut strategies::Generator<R>,
-    ) -> strategies::Generation<Self::Tree> {
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
         generator.recurse(|outer| {
             let mut values = Vec::with_capacity(3);
             for _ in 0..3 {
@@ -186,8 +188,8 @@ impl Strategy for AlwaysReject {
 
     fn new_tree<R: rand::RngCore + rand::CryptoRng>(
         &mut self,
-        generator: &mut strategies::Generator<R>,
-    ) -> strategies::Generation<Self::Tree> {
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
         generator.reject(StaticTree::new(0))
     }
 }
@@ -217,8 +219,8 @@ impl Strategy for RecursiveOverflow {
 
     fn new_tree<R: rand::RngCore + rand::CryptoRng>(
         &mut self,
-        generator: &mut strategies::Generator<R>,
-    ) -> strategies::Generation<Self::Tree> {
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
         generator.recurse(|outer| {
             outer.recurse(|inner| inner.accept(StaticTree::new(1usize)))
         })

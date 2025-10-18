@@ -13,7 +13,7 @@ use rand::{
     distr::{SampleString, StandardUniform},
 };
 
-use crate::strategies::{Generation, Generator};
+use crate::strategy::runtime::{Generation, Generator};
 
 pub(crate) const STRING_MAX_LEN: usize = 128;
 pub(crate) const COLLECTION_MAX_LEN: usize = 32;

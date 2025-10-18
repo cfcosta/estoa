@@ -2,18 +2,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use estoa_proptest::{
     proptest,
-    strategies,
     strategy::{
-        AnyI32,
-        AnyU8,
-        AnyU16,
-        ValueTree,
-        collections::{
-            HashMapStrategy,
-            HashSetStrategy,
-            VecDequeStrategy,
-            VecStrategy,
-        },
+        runtime::{Generation, Generator},
+        *,
     },
 };
 use rand::Rng;
@@ -27,11 +18,12 @@ impl estoa_proptest::strategy::Strategy for DifferentStrategy {
 
     fn new_tree<R: rand::RngCore + rand::CryptoRng>(
         &mut self,
-        generator: &mut strategies::Generator<R>,
-    ) -> strategies::Generation<Self::Tree> {
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
         loop {
             let first = generator.rng.random::<u8>();
             let second = generator.rng.random::<u8>();
+
             if first != second {
                 return generator.accept(StaticTree::new((first, second)));
             }

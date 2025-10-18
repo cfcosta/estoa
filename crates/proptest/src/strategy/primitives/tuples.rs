@@ -1,8 +1,9 @@
 use paste::paste;
 
-use crate::{
-    strategies::{Generation, Generator},
-    strategy::{Strategy, ValueTree},
+use crate::strategy::{
+    Strategy,
+    ValueTree,
+    runtime::{Generation, Generator},
 };
 
 macro_rules! tuple_impl {

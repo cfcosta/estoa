@@ -1,3 +1,5 @@
+#![allow(clippy::absurd_extreme_comparisons)]
+
 use std::collections::{
     BTreeMap,
     BTreeSet,
@@ -7,25 +9,7 @@ use std::collections::{
     VecDeque,
 };
 
-use estoa_proptest::{
-    proptest,
-    strategy::{
-        AnyBool,
-        AnyI32,
-        ArrayStrategy,
-        OptionStrategy,
-        ResultStrategy,
-        collections::{
-            BTreeMapStrategy,
-            BTreeSetStrategy,
-            BinaryHeapStrategy,
-            HashMapStrategy,
-            HashSetStrategy,
-            VecDequeStrategy,
-            VecStrategy,
-        },
-    },
-};
+use estoa_proptest::{proptest, strategy::*};
 
 #[proptest(cases = 64)]
 fn option_strategy_handles_none_and_some(
@@ -39,27 +23,30 @@ fn option_strategy_handles_none_and_some(
 
 #[proptest(cases = 64)]
 fn result_strategy_emits_ok_or_err(
-    #[strategy(ResultStrategy::new(AnyI32::default(), AnyBool))]
-    value: Result<i32, bool>,
+    #[strategy(ResultStrategy::new(AnyI32::default(), AnyBool))] value: Result<
+        i32,
+        bool,
+    >,
 ) {
-    match value {
-        Ok(inner) => assert!(inner >= i32::MIN),
-        Err(flag) => assert!(flag || !flag),
+    if let Ok(inner) = value {
+        assert!(inner >= i32::MIN)
     }
 }
 
 #[proptest(cases = 32)]
 fn array_strategy_keeps_fixed_length(
-    #[strategy(ArrayStrategy::<_, 4>::new(AnyBool))] value: [bool;
-        4],
+    #[strategy(ArrayStrategy::<_, 4>::new(AnyBool))] value: [bool; 4],
 ) {
     assert_eq!(value.len(), 4);
 }
 
 #[proptest(cases = 32)]
 fn tuple_strategy_combines_multiple_components(
-    #[strategy((AnyI32::default(), AnyBool, AnyI32::default()))]
-    value: (i32, bool, i32),
+    #[strategy((AnyI32::default(), AnyBool, AnyI32::default()))] value: (
+        i32,
+        bool,
+        i32,
+    ),
 ) {
     assert!(value.0 >= i32::MIN);
     assert!(value.2 >= i32::MIN);

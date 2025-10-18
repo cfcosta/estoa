@@ -1,6 +1,6 @@
 use rand::{CryptoRng, RngCore};
 
-use crate::strategies::{Generation, Generator};
+use crate::strategy::runtime::{Generation, Generator};
 
 /// A shrinkable search space for values produced by a [`Strategy`].
 pub trait ValueTree {
