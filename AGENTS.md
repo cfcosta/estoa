@@ -4,9 +4,8 @@
 Estoa is a Cargo workspace defined in `Cargo.toml`, with each component living under `crates/`. Core runtime logic belongs in domain crates such as `crdts`, `codec`, and `storage`; CLI entry points sit in `cli/src`, and reusable testing helpers live in `proptest` and `proptest-macros`. Use `src/` for library code and `tests/` for integration or property suites; keep shared fixtures in crate-specific modules instead of the workspace root.
 
 ## Build, Test, and Development Commands
-- `cargo build --workspace` compiles all crates and verifies cross-crate compatibility.
-- `cargo check --workspace` gives the fastest feedback for type errors before committing.
-- `cargo test --workspace` runs unit and integration tests; add `--package estoa-proptest` to isolate property-based suites.
+- `cargo clippy --all --all-targets --all-features` to check builds every time.
+- `cargo fmt --all` to format all the files, which you should do every time.
 - `cargo nextest run` uses the optional Nextest runner installed in the dev shell for faster iteration.
 Enter the Nix development shell with `nix develop` to load the pinned toolchain and helper utilities.
 
