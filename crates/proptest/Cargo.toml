@@ -4,6 +4,6 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-rand = "0.9.2"
 estoa-proptest-macros = { path = "../proptest-macros" }
+rand = "0.9.2"
 paste = "1.0.15"

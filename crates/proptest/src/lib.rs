@@ -2,6 +2,7 @@ use rand::{CryptoRng, RngCore, rngs::ThreadRng};
 
 mod arbitrary;
 pub mod strategies;
+pub mod strategy;
 
 pub use arbitrary::Arbitrary;
 pub use estoa_proptest_macros::proptest;

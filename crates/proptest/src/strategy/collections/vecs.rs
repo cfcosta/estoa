@@ -1,0 +1,379 @@
+use std::ops::RangeInclusive;
+
+use super::super::primitives::AnyUsize;
+use crate::{
+    strategies::{Generation, Generator},
+    strategy::{Strategy, ValueTree},
+};
+
+fn build_drop_plan(len: usize) -> Vec<usize> {
+    let mut plan = Vec::new();
+    let mut size = len / 2;
+
+    while size > 0 {
+        plan.push(size);
+        size /= 2;
+    }
+
+    if !plan.contains(&1) && len > 0 {
+        plan.push(1);
+    }
+
+    plan
+}
+
+fn sample_length<R: rand::RngCore + rand::CryptoRng>(
+    rng: &mut R,
+    range: &RangeInclusive<usize>,
+) -> usize {
+    AnyUsize::sample(rng, range.clone())
+}
+
+#[derive(Clone)]
+pub struct VecStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone,
+{
+    element: S,
+    len_range: RangeInclusive<usize>,
+}
+
+impl<S> VecStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone,
+{
+    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
+        Self { element, len_range }
+    }
+}
+
+impl<S> Strategy for VecStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone,
+{
+    type Value = Vec<S::Value>;
+    type Tree = VecValueTree<S::Tree>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
+        let len = sample_length(&mut generator.rng, &self.len_range);
+        let min_len = *self.len_range.start();
+        let mut trees = Vec::with_capacity(len);
+
+        for _ in 0..len {
+            match self.element.new_tree(generator) {
+                Generation::Accepted { value, .. } => trees.push(value),
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: VecValueTree::from_trees(trees, min_len),
+                    };
+                }
+            }
+        }
+
+        generator.accept(VecValueTree::from_trees(trees, min_len))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Stage {
+    Length { chunk_index: usize, offset: usize },
+    Elements { index: usize },
+}
+
+enum History<T> {
+    RemovedChunk {
+        index: usize,
+        chunk_index: usize,
+        chunk: Vec<T>,
+    },
+    Element {
+        index: usize,
+    },
+}
+
+pub struct VecValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone,
+{
+    elements: Vec<T>,
+    current: Vec<T::Value>,
+    min_len: usize,
+    drop_plan: Vec<usize>,
+    stage: Stage,
+    history: Vec<History<T>>,
+}
+
+impl<T> VecValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone,
+{
+    pub fn from_trees(elements: Vec<T>, min_len: usize) -> Self {
+        let drop_plan = build_drop_plan(elements.len());
+        let stage = if drop_plan.is_empty() {
+            Stage::Elements { index: 0 }
+        } else {
+            Stage::Length {
+                chunk_index: 0,
+                offset: 0,
+            }
+        };
+
+        let mut tree = Self {
+            elements,
+            current: Vec::new(),
+            min_len,
+            drop_plan,
+            stage,
+            history: Vec::new(),
+        };
+
+        tree.sync_current();
+        tree
+    }
+
+    fn sync_current(&mut self) {
+        self.current = self
+            .elements
+            .iter()
+            .map(|element| element.current().clone())
+            .collect();
+    }
+
+    fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    fn seek_length_from(
+        &mut self,
+        mut chunk_index: usize,
+        mut offset: usize,
+    ) -> Option<(usize, usize, usize)> {
+        while chunk_index < self.drop_plan.len() {
+            let chunk_size = self.drop_plan[chunk_index];
+
+            if chunk_size == 0
+                || self.len() <= self.min_len
+                || chunk_size > self.len()
+                || self.len().saturating_sub(chunk_size) < self.min_len
+            {
+                chunk_index += 1;
+                offset = 0;
+                continue;
+            }
+
+            if offset + chunk_size > self.len() {
+                chunk_index += 1;
+                offset = 0;
+                continue;
+            }
+
+            self.stage = Stage::Length {
+                chunk_index,
+                offset,
+            };
+            return Some((chunk_index, offset, chunk_size));
+        }
+
+        self.stage = Stage::Elements { index: 0 };
+        None
+    }
+}
+
+impl<T> ValueTree for VecValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone,
+{
+    type Value = Vec<T::Value>;
+
+    fn current(&self) -> &Self::Value {
+        &self.current
+    }
+
+    fn simplify(&mut self) -> bool {
+        loop {
+            match self.stage {
+                Stage::Length {
+                    chunk_index,
+                    offset,
+                } => {
+                    let Some((ci, off, chunk_size)) =
+                        self.seek_length_from(chunk_index, offset)
+                    else {
+                        continue;
+                    };
+
+                    let removed: Vec<T> =
+                        self.elements.drain(off..off + chunk_size).collect();
+                    self.current.drain(off..off + chunk_size).count();
+                    self.history.push(History::RemovedChunk {
+                        index: off,
+                        chunk_index: ci,
+                        chunk: removed,
+                    });
+                    return true;
+                }
+                Stage::Elements { index } => {
+                    if index >= self.len() {
+                        return false;
+                    }
+
+                    if self.elements[index].simplify() {
+                        self.current[index] =
+                            self.elements[index].current().clone();
+                        self.history.push(History::Element { index });
+                        return true;
+                    } else {
+                        self.stage = Stage::Elements { index: index + 1 };
+                    }
+                }
+            }
+        }
+    }
+
+    fn complicate(&mut self) -> bool {
+        let Some(entry) = self.history.pop() else {
+            return false;
+        };
+
+        match entry {
+            History::RemovedChunk {
+                index,
+                chunk_index,
+                chunk,
+            } => {
+                let values: Vec<T::Value> =
+                    chunk.iter().map(|tree| tree.current().clone()).collect();
+                self.elements.splice(index..index, chunk);
+                self.current.splice(index..index, values);
+
+                match self.seek_length_from(chunk_index, index + 1) {
+                    Some(_) => true,
+                    None => !self.current.is_empty(),
+                }
+            }
+            History::Element { index } => {
+                if self.elements[index].complicate() {
+                    self.current[index] =
+                        self.elements[index].current().clone();
+                    self.history.push(History::Element { index });
+                    true
+                } else {
+                    self.current[index] =
+                        self.elements[index].current().clone();
+                    if index + 1 < self.len() {
+                        self.stage = Stage::Elements { index: index + 1 };
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        strategies::Generator,
+        strategy::{AnyI32, ValueTree},
+    };
+
+    #[test]
+    fn vec_drop_plan_halves() {
+        assert_eq!(build_drop_plan(8), vec![4, 2, 1]);
+    }
+
+    #[test]
+    fn vec_shrinks_length_first() {
+        let mut trees = Vec::new();
+        trees.push(IntTree::new(3));
+        trees.push(IntTree::new(2));
+        trees.push(IntTree::new(1));
+
+        let mut tree = VecValueTree::from_trees(trees, 0);
+        assert!(tree.simplify());
+        assert_eq!(tree.current().len(), 2);
+    }
+
+    struct IntTree {
+        values: Vec<i32>,
+        index: usize,
+    }
+
+    impl IntTree {
+        fn new(value: i32) -> Self {
+            Self {
+                values: vec![value, 0],
+                index: 0,
+            }
+        }
+    }
+
+    impl ValueTree for IntTree {
+        type Value = i32;
+
+        fn current(&self) -> &Self::Value {
+            &self.values[self.index]
+        }
+
+        fn simplify(&mut self) -> bool {
+            if self.index + 1 < self.values.len() {
+                self.index += 1;
+                true
+            } else {
+                false
+            }
+        }
+
+        fn complicate(&mut self) -> bool {
+            if self.index == 0 {
+                false
+            } else {
+                self.index -= 1;
+                self.index > 0
+            }
+        }
+    }
+
+    #[test]
+    fn vec_shrinks_elements_after_length() {
+        let mut trees = Vec::new();
+        trees.push(IntTree::new(5));
+        trees.push(IntTree::new(9));
+
+        let mut tree = VecValueTree::from_trees(trees, 1);
+
+        assert!(tree.simplify());
+        assert_eq!(tree.current(), &vec![9]);
+
+        assert!(tree.simplify());
+        assert_eq!(tree.current(), &vec![0]);
+    }
+
+    #[test]
+    fn vec_strategy_builds_length_in_range() {
+        let mut strategy = VecStrategy::new(AnyI32::default(), 2usize..=4usize);
+        let mut generator =
+            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let len = match strategy.new_tree(&mut generator) {
+            Generation::Accepted { value, .. } => value.current().len(),
+            Generation::Rejected { .. } => panic!("unexpected rejection"),
+        };
+        assert!(len >= 2 && len <= 4, "len out of range");
+    }
+}

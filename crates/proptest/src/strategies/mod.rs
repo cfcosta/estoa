@@ -10,6 +10,8 @@ pub use collections::*;
 pub use generator::*;
 pub use size_hint::*;
 
+pub use crate::strategy::{Strategy, Strategy as NewStrategy, ValueTree};
+
 pub type DefaultGenerator = Generator<ThreadRng>;
 
 pub fn any<T: Arbitrary>() -> impl FnMut(&mut DefaultGenerator) -> Generation<T>
