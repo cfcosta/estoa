@@ -1,4 +1,7 @@
-use std::ops::RangeInclusive;
+use std::{
+    collections::{BinaryHeap, VecDeque},
+    ops::RangeInclusive,
+};
 
 use super::super::primitives::AnyUsize;
 use crate::{
@@ -285,6 +288,194 @@ where
     }
 }
 
+pub struct VecDequeStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone,
+{
+    inner: VecStrategy<S>,
+}
+
+impl<S> VecDequeStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone,
+{
+    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
+        Self {
+            inner: VecStrategy::new(element, len_range),
+        }
+    }
+}
+
+pub struct VecDequeValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone,
+{
+    inner: VecValueTree<T>,
+    current: VecDeque<T::Value>,
+}
+
+impl<T> VecDequeValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone,
+{
+    fn new(inner: VecValueTree<T>) -> Self {
+        let mut tree = Self {
+            inner,
+            current: VecDeque::new(),
+        };
+        tree.sync_current();
+        tree
+    }
+
+    fn sync_current(&mut self) {
+        self.current = VecDeque::from(self.inner.current().clone());
+    }
+}
+
+impl<S> Strategy for VecDequeStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone,
+{
+    type Value = VecDeque<S::Value>;
+    type Tree = VecDequeValueTree<S::Tree>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
+        self.inner.new_tree(generator).map(VecDequeValueTree::new)
+    }
+}
+
+impl<T> ValueTree for VecDequeValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone,
+{
+    type Value = VecDeque<T::Value>;
+
+    fn current(&self) -> &Self::Value {
+        &self.current
+    }
+
+    fn simplify(&mut self) -> bool {
+        if self.inner.simplify() {
+            self.sync_current();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn complicate(&mut self) -> bool {
+        if self.inner.complicate() {
+            self.sync_current();
+            true
+        } else {
+            false
+        }
+    }
+}
+
+pub struct BinaryHeapStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone + Ord,
+{
+    inner: VecStrategy<S>,
+}
+
+impl<S> BinaryHeapStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone + Ord,
+{
+    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
+        Self {
+            inner: VecStrategy::new(element, len_range),
+        }
+    }
+}
+
+pub struct BinaryHeapValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone + Ord,
+{
+    inner: VecValueTree<T>,
+    current: BinaryHeap<T::Value>,
+}
+
+impl<T> BinaryHeapValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone + Ord,
+{
+    fn new(inner: VecValueTree<T>) -> Self {
+        let mut tree = Self {
+            inner,
+            current: BinaryHeap::new(),
+        };
+        tree.sync_current();
+        tree
+    }
+
+    fn sync_current(&mut self) {
+        self.current = BinaryHeap::from(self.inner.current().clone());
+    }
+}
+
+impl<S> Strategy for BinaryHeapStrategy<S>
+where
+    S: Strategy,
+    S::Value: Clone + Ord,
+{
+    type Value = BinaryHeap<S::Value>;
+    type Tree = BinaryHeapValueTree<S::Tree>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut Generator<R>,
+    ) -> Generation<Self::Tree> {
+        self.inner.new_tree(generator).map(BinaryHeapValueTree::new)
+    }
+}
+
+impl<T> ValueTree for BinaryHeapValueTree<T>
+where
+    T: ValueTree,
+    T::Value: Clone + Ord,
+{
+    type Value = BinaryHeap<T::Value>;
+
+    fn current(&self) -> &Self::Value {
+        &self.current
+    }
+
+    fn simplify(&mut self) -> bool {
+        if self.inner.simplify() {
+            self.sync_current();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn complicate(&mut self) -> bool {
+        if self.inner.complicate() {
+            self.sync_current();
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -363,6 +554,62 @@ mod tests {
 
         assert!(tree.simplify());
         assert_eq!(tree.current(), &vec![0]);
+    }
+
+    #[test]
+    fn vec_deque_mirrors_vec_shrinking() {
+        let trees = vec![IntTree::new(4), IntTree::new(3), IntTree::new(2)];
+        let inner = VecValueTree::from_trees(trees, 0);
+        let mut tree = VecDequeValueTree::new(inner);
+        assert_eq!(tree.current().len(), 3);
+        assert!(tree.simplify());
+        assert_eq!(tree.current().len(), 2);
+        assert!(tree.simplify());
+        assert_eq!(tree.current().len(), 1);
+    }
+
+    #[test]
+    fn binary_heap_preserves_heap_property() {
+        let trees = vec![IntTree::new(7), IntTree::new(3), IntTree::new(5)];
+        let inner = VecValueTree::from_trees(trees, 1);
+        let mut tree = BinaryHeapValueTree::new(inner);
+
+        assert_eq!(tree.current().len(), 3);
+        assert_eq!(tree.current().peek(), Some(&7));
+
+        assert!(tree.simplify());
+        assert_eq!(tree.current().len(), 2);
+        assert_eq!(tree.current().peek(), Some(&5));
+
+        assert!(tree.simplify());
+        assert_eq!(tree.current().len(), 1);
+        assert_eq!(tree.current().peek(), Some(&5));
+    }
+
+    #[test]
+    fn vec_deque_strategy_yields_len_in_range() {
+        let mut strategy =
+            VecDequeStrategy::new(AnyI32::default(), 1usize..=3usize);
+        let mut generator =
+            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let len = match strategy.new_tree(&mut generator) {
+            Generation::Accepted { value, .. } => value.current().len(),
+            Generation::Rejected { .. } => panic!("unexpected rejection"),
+        };
+        assert!(len >= 1 && len <= 3);
+    }
+
+    #[test]
+    fn binary_heap_strategy_yields_len_in_range() {
+        let mut strategy =
+            BinaryHeapStrategy::new(AnyI32::default(), 1usize..=3usize);
+        let mut generator =
+            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let len = match strategy.new_tree(&mut generator) {
+            Generation::Accepted { value, .. } => value.current().len(),
+            Generation::Rejected { .. } => panic!("unexpected rejection"),
+        };
+        assert!(len >= 1 && len <= 3);
     }
 
     #[test]
