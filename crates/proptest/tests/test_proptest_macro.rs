@@ -5,7 +5,12 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use estoa_proptest::{Arbitrary, proptest, strategies};
+use estoa_proptest::{
+    Arbitrary,
+    proptest,
+    strategies,
+    strategy::{AnyU8, Strategy, ValueTree, collections::VecStrategy},
+};
 use rand::Rng;
 
 struct Bounded {
@@ -43,59 +48,110 @@ fn test_proptest_supports_generic_arguments(val: Option<u8>) {
 
 #[proptest]
 fn test_proptest_supports_strategy_annotations(
-    #[strategy(strategies::vec(strategies::any::<u8>(), 1..=8))] items: Vec<u8>,
+    #[strategy(VecStrategy::new(AnyU8::default(), 1usize..=8usize))] items: Vec<
+        u8,
+    >,
 ) {
     assert!(!items.is_empty());
 }
 
 #[proptest]
 fn test_proptest_supports_mixed_arguments(
-    #[strategy(strategies::vec(strategies::any::<u8>(), 1..=8))] items: Vec<u8>,
+    #[strategy(VecStrategy::new(AnyU8::default(), 1usize..=8usize))] items: Vec<
+        u8,
+    >,
     value: u8,
 ) {
     assert!(!items.is_empty());
     assert!(value <= u8::MAX);
 }
 
+#[derive(Default)]
+struct StaticTree<T> {
+    value: T,
+}
+
+impl<T> StaticTree<T> {
+    fn new(value: T) -> Self {
+        Self { value }
+    }
+}
+
+impl<T: Clone> ValueTree for StaticTree<T> {
+    type Value = T;
+
+    fn current(&self) -> &Self::Value {
+        &self.value
+    }
+
+    fn simplify(&mut self) -> bool {
+        false
+    }
+
+    fn complicate(&mut self) -> bool {
+        false
+    }
+}
+
+#[derive(Default)]
+struct RetryStrategy {
+    rejected: bool,
+}
+
+impl Strategy for RetryStrategy {
+    type Value = u8;
+    type Tree = StaticTree<u8>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut strategies::Generator<R>,
+    ) -> strategies::Generation<Self::Tree> {
+        if !self.rejected {
+            self.rejected = true;
+            generator.reject(StaticTree::new(0))
+        } else {
+            generator.accept(StaticTree::new(42))
+        }
+    }
+}
+
 #[proptest]
 fn test_proptest_retries_until_strategy_accepts(
-    #[strategy(|generator: &mut strategies::DefaultGenerator| {
-        if generator.iteration() == 0 {
-            generator.reject(0u8)
-        } else {
-            generator.accept(42u8)
-        }
-    })]
-    value: u8,
+    #[strategy(RetryStrategy::default())] value: u8,
 ) {
     assert_eq!(value, 42);
 }
 
+#[derive(Default)]
+struct NestedVecStrategy;
+
+impl Strategy for NestedVecStrategy {
+    type Value = Vec<Vec<u8>>;
+    type Tree = StaticTree<Vec<Vec<u8>>>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut strategies::Generator<R>,
+    ) -> strategies::Generation<Self::Tree> {
+        generator.recurse(|outer| {
+            let mut values = Vec::with_capacity(3);
+            for _ in 0..3 {
+                let mut inner = Vec::with_capacity(4);
+                for _ in 0..4 {
+                    inner.push(outer.rng.random::<u8>());
+                }
+                values.push(inner);
+            }
+            outer.accept(StaticTree::new(values))
+        })
+    }
+}
+
 #[proptest]
 fn test_proptest_handles_recursive_generators(
-    #[strategy(|generator: &mut strategies::DefaultGenerator| {
-        generator.recurse(|nested| {
-            let mut inner =
-                strategies::vec(strategies::any::<u8>(), 1..=4);
-            let mut outer = Vec::with_capacity(3);
-            for _ in 0..3 {
-                match inner(nested) {
-                    strategies::Generation::Accepted { value, .. } => outer.push(value),
-                    strategies::Generation::Rejected { iteration, depth, .. } => {
-                        return strategies::Generation::Rejected {
-                            iteration,
-                            depth,
-                            value: outer,
-                        };
-                    }
-                }
-            }
-            nested.accept(outer)
-        })
-    })]
-    nested: Vec<Vec<u8>>,
+    #[strategy(NestedVecStrategy)] nested: Vec<Vec<u8>>,
 ) {
-    assert!(nested.iter().all(|inner| !inner.is_empty()));
+    assert!(nested.iter().all(|inner| inner.len() == 4));
     assert_eq!(nested.len(), 3);
 }
 
@@ -121,13 +177,25 @@ fn test_cases_configuration_runs_expected_iterations() {
     assert_eq!(*guard, 8);
 }
 
+#[derive(Default)]
+struct AlwaysReject;
+
+impl Strategy for AlwaysReject {
+    type Value = u8;
+    type Tree = StaticTree<u8>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut strategies::Generator<R>,
+    ) -> strategies::Generation<Self::Tree> {
+        generator.reject(StaticTree::new(0))
+    }
+}
+
 #[should_panic(expected = "limit 2")]
 #[proptest(rejection_limit = 2)]
 fn test_proptest_respects_rejection_limit_panics(
-    #[strategy(|generator: &mut strategies::DefaultGenerator| {
-        generator.reject(0u8)
-    })]
-    _value: u8,
+    #[strategy(AlwaysReject)] _value: u8,
 ) {
     unreachable!("strategy should always reject");
 }
@@ -140,15 +208,27 @@ fn test_rejection_limit_panics_after_expected_attempts() {
     assert!(result.is_err(), "rejection limit did not trigger panic");
 }
 
+#[derive(Default)]
+struct RecursiveOverflow;
+
+impl Strategy for RecursiveOverflow {
+    type Value = usize;
+    type Tree = StaticTree<usize>;
+
+    fn new_tree<R: rand::RngCore + rand::CryptoRng>(
+        &mut self,
+        generator: &mut strategies::Generator<R>,
+    ) -> strategies::Generation<Self::Tree> {
+        generator.recurse(|outer| {
+            outer.recurse(|inner| inner.accept(StaticTree::new(1usize)))
+        })
+    }
+}
+
 #[should_panic(expected = "strategy recursion exceeded limit")]
 #[proptest(recursion_limit = 1)]
 fn test_proptest_enforces_recursion_limit(
-    #[strategy(|generator: &mut strategies::DefaultGenerator| {
-        generator.recurse(|outer| {
-            outer.recurse(|inner| inner.accept(1usize))
-        })
-    })]
-    _value: usize,
+    #[strategy(RecursiveOverflow)] _value: usize,
 ) {
     unreachable!("recursive strategy should exceed limit first");
 }

@@ -165,11 +165,14 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
             Some(expr) => {
                 let strategy_ident = format_ident!("__estoa_strategy_{index}");
                 quote! {
-                    let mut #strategy_ident = (#expr);
+                    let mut #strategy_ident = ::estoa_proptest::strategy::runtime::adapt(#expr);
                     let #binding_ident: #ty = {
                         let mut __estoa_attempts = 0usize;
                         loop {
-                            match #strategy_ident(&mut generator) {
+                            match ::estoa_proptest::strategy::runtime::execute(
+                                &mut #strategy_ident,
+                                &mut generator,
+                            ) {
                                 ::estoa_proptest::strategies::Generation::Accepted { value, .. } => {
                                     generator.advance_iteration();
                                     break value;
@@ -198,7 +201,7 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                     let #binding_ident: #ty = {
                         let mut __estoa_attempts = 0usize;
                         loop {
-                            match ::estoa_proptest::arbitrary(&mut generator) {
+                            match ::estoa_proptest::strategy::runtime::from_arbitrary(&mut generator) {
                                 ::estoa_proptest::strategies::Generation::Accepted { value, .. } => {
                                     generator.advance_iteration();
                                     break value;
