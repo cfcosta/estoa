@@ -88,16 +88,16 @@ mod tests {
         let mut tree = BoolValueTree::new(true);
         assert!(tree.simplify());
         assert!(!tree.simplify());
-        assert_eq!(*tree.current(), false);
+        assert!(!(*tree.current()));
     }
 
     #[test]
     fn complicate_reverts_to_original() {
         let mut tree = BoolValueTree::new(true);
         assert!(tree.simplify());
-        assert_eq!(*tree.current(), false);
+        assert!(!(*tree.current()));
         assert!(!tree.complicate());
-        assert_eq!(*tree.current(), true);
+        assert!(*tree.current());
         assert!(!tree.simplify());
     }
 
@@ -106,6 +106,6 @@ mod tests {
         let mut tree = BoolValueTree::new(false);
         assert!(!tree.simplify());
         assert!(!tree.complicate());
-        assert_eq!(*tree.current(), false);
+        assert!(!(*tree.current()));
     }
 }

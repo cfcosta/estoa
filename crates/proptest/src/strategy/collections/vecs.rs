@@ -9,7 +9,7 @@ use crate::{
     strategy::{Strategy, ValueTree},
 };
 
-fn build_drop_plan(len: usize) -> Vec<usize> {
+pub(crate) fn build_drop_plan(len: usize) -> Vec<usize> {
     let mut plan = Vec::new();
     let mut size = len / 2;
 
@@ -25,7 +25,7 @@ fn build_drop_plan(len: usize) -> Vec<usize> {
     plan
 }
 
-fn sample_length<R: rand::RngCore + rand::CryptoRng>(
+pub(crate) fn sample_length<R: rand::RngCore + rand::CryptoRng>(
     rng: &mut R,
     range: &RangeInclusive<usize>,
 ) -> usize {
@@ -491,10 +491,7 @@ mod tests {
 
     #[test]
     fn vec_shrinks_length_first() {
-        let mut trees = Vec::new();
-        trees.push(IntTree::new(3));
-        trees.push(IntTree::new(2));
-        trees.push(IntTree::new(1));
+        let trees = vec![IntTree::new(3), IntTree::new(2), IntTree::new(1)];
 
         let mut tree = VecValueTree::from_trees(trees, 0);
         assert!(tree.simplify());
@@ -543,10 +540,7 @@ mod tests {
 
     #[test]
     fn vec_shrinks_elements_after_length() {
-        let mut trees = Vec::new();
-        trees.push(IntTree::new(5));
-        trees.push(IntTree::new(9));
-
+        let trees = vec![IntTree::new(5), IntTree::new(9)];
         let mut tree = VecValueTree::from_trees(trees, 1);
 
         assert!(tree.simplify());
@@ -561,6 +555,7 @@ mod tests {
         let trees = vec![IntTree::new(4), IntTree::new(3), IntTree::new(2)];
         let inner = VecValueTree::from_trees(trees, 0);
         let mut tree = VecDequeValueTree::new(inner);
+
         assert_eq!(tree.current().len(), 3);
         assert!(tree.simplify());
         assert_eq!(tree.current().len(), 2);
@@ -596,7 +591,7 @@ mod tests {
             Generation::Accepted { value, .. } => value.current().len(),
             Generation::Rejected { .. } => panic!("unexpected rejection"),
         };
-        assert!(len >= 1 && len <= 3);
+        assert!((1..=3).contains(&len));
     }
 
     #[test]
@@ -609,7 +604,7 @@ mod tests {
             Generation::Accepted { value, .. } => value.current().len(),
             Generation::Rejected { .. } => panic!("unexpected rejection"),
         };
-        assert!(len >= 1 && len <= 3);
+        assert!((1..=3).contains(&len));
     }
 
     #[test]
@@ -621,6 +616,6 @@ mod tests {
             Generation::Accepted { value, .. } => value.current().len(),
             Generation::Rejected { .. } => panic!("unexpected rejection"),
         };
-        assert!(len >= 2 && len <= 4, "len out of range");
+        assert!((2..=4).contains(&len), "len out of range");
     }
 }
