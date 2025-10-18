@@ -1,22 +1,42 @@
-use rand::{CryptoRng, RngCore};
+use rand::rngs::ThreadRng;
 
-use crate::{Arbitrary, arbitrary};
+use crate::Arbitrary;
 
 mod collections;
 mod generator;
+mod size_hint;
 
 pub use collections::*;
 pub use generator::*;
+pub use size_hint::*;
 
-pub fn different<T: Arbitrary + PartialEq, R: RngCore + CryptoRng>(
-    generator: &mut Generator<R>,
-) -> Generation<(T, T)> {
-    let (a, b) = (arbitrary(&mut generator.rng), arbitrary(&mut generator.rng));
+pub type DefaultGenerator = Generator<ThreadRng>;
 
-    if a != b {
-        generator.accept((a, b))
-    } else {
-        generator.reject((a, b))
+pub fn any<T: Arbitrary>() -> impl FnMut(&mut DefaultGenerator) -> Generation<T>
+{
+    move |generator: &mut DefaultGenerator| T::generate(generator)
+}
+
+pub fn different<T: Arbitrary + PartialEq>()
+-> impl FnMut(&mut DefaultGenerator) -> Generation<(T, T)> {
+    let mut pair_strategy = any::<(T, T)>();
+    move |generator: &mut DefaultGenerator| match pair_strategy(generator) {
+        Generation::Accepted { value, .. } => {
+            if value.0 != value.1 {
+                generator.accept(value)
+            } else {
+                generator.reject(value)
+            }
+        }
+        Generation::Rejected {
+            iteration,
+            depth,
+            value,
+        } => Generation::Rejected {
+            iteration,
+            depth,
+            value,
+        },
     }
 }
 

@@ -3,170 +3,309 @@ use std::{
     hash::Hash,
 };
 
-use paste::paste;
-use rand::{CryptoRng, Rng, RngCore};
+use super::{DefaultGenerator, Generation, MAX_STRATEGY_ATTEMPTS, SizeHint};
 
-use super::{Generation, Generator, MAX_STRATEGY_ATTEMPTS};
-use crate::{Arbitrary, arbitrary, arbitrary::COLLECTION_MAX_LEN};
+pub fn vec<T, S, H>(
+    mut strategy: S,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<Vec<T>>
+where
+    S: FnMut(&mut DefaultGenerator) -> Generation<T>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let len = hint.pick(&mut generator.rng);
+        let mut values = Vec::with_capacity(len);
 
-macro_rules! define_unary_collection_strategies {
-    ($(
-        $module:ident => {
-            collection: $collection:ident;
-            element: $element:ident;
-            constraints: [$($constraints:tt)*];
-            method: $method:ident;
-        }
-    )+) => {
-        $(
-            paste! {
-                pub mod $module {
-                    use super::*;
-
-                    pub fn not_empty<$element, R>(
-                        generator: &mut Generator<R>,
-                    ) -> Generation<$collection<$element>>
-                    where
-                        R: RngCore + CryptoRng,
-                        $($constraints)*
-                    {
-                        let len = generator.rng.random_range(1..=COLLECTION_MAX_LEN);
-                        let mut collection: $collection<$element> = Default::default();
-                        let mut attempts = 0usize;
-
-                        while collection.len() < len
-                            && attempts < MAX_STRATEGY_ATTEMPTS
-                        {
-                            attempts += 1;
-                            let value = arbitrary(&mut generator.rng);
-                            collection.$method(value);
-                        }
-
-                        if collection.is_empty() {
-                            for _ in 0..MAX_STRATEGY_ATTEMPTS {
-                                let value = arbitrary(&mut generator.rng);
-                                collection.$method(value);
-
-                                if !collection.is_empty() {
-                                    break;
-                                }
-                            }
-                        }
-
-                        generator.accept(collection)
-                    }
+        for _ in 0..len {
+            match strategy(generator) {
+                Generation::Accepted { value, .. } => values.push(value),
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: values,
+                    };
                 }
             }
-        )+
-    };
+        }
+
+        generator.accept(values)
+    }
 }
 
-macro_rules! define_map_collection_strategies {
-    ($(
-        $module:ident => {
-            collection: $collection:ident;
-            key: $key:ident;
-            value: $value:ident;
-            key_constraints: [$($key_constraints:tt)*];
-            value_constraints: [$($value_constraints:tt)*];
-            method: $method:ident;
-        }
-    )+) => {
-        $(
-            paste! {
-                pub mod $module {
-                    use super::*;
+pub fn vec_deque<T, S, H>(
+    mut strategy: S,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<VecDeque<T>>
+where
+    S: FnMut(&mut DefaultGenerator) -> Generation<T>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let len = hint.pick(&mut generator.rng);
+        let mut values = VecDeque::with_capacity(len);
 
-                    pub fn not_empty<$key, $value, R>(
-                        generator: &mut Generator<R>,
-                    ) -> Generation<$collection<$key, $value>>
-                    where
-                        R: RngCore + CryptoRng,
-                        $($key_constraints)*
-                        $($value_constraints)*
-                    {
-                        let len = generator.rng.random_range(1..=COLLECTION_MAX_LEN);
-                        let mut collection: $collection<$key, $value> =
-                            Default::default();
-                        let mut attempts = 0usize;
-
-                        while collection.len() < len
-                            && attempts < MAX_STRATEGY_ATTEMPTS
-                        {
-                            attempts += 1;
-                            let key = arbitrary(&mut generator.rng);
-                            let value = arbitrary(&mut generator.rng);
-                            collection.$method(key, value);
-                        }
-
-                        if collection.is_empty() {
-                            for _ in 0..MAX_STRATEGY_ATTEMPTS {
-                                let key = arbitrary(&mut generator.rng);
-                                let value = arbitrary(&mut generator.rng);
-                                collection.$method(key, value);
-
-                                if !collection.is_empty() {
-                                    break;
-                                }
-                            }
-                        }
-
-                        generator.accept(collection)
-                    }
+        for _ in 0..len {
+            match strategy(generator) {
+                Generation::Accepted { value, .. } => values.push_back(value),
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: values,
+                    };
                 }
             }
-        )+
-    };
-}
+        }
 
-define_unary_collection_strategies! {
-    vec => {
-        collection: Vec;
-        element: T;
-        constraints: [T: Arbitrary + PartialEq];
-        method: push;
-    }
-    vec_deque => {
-        collection: VecDeque;
-        element: T;
-        constraints: [T: Arbitrary];
-        method: push_back;
-    }
-    binary_heap => {
-        collection: BinaryHeap;
-        element: T;
-        constraints: [T: Arbitrary + Ord];
-        method: push;
-    }
-    hash_set => {
-        collection: HashSet;
-        element: T;
-        constraints: [T: Arbitrary + Eq + Hash];
-        method: insert;
-    }
-    b_tree_set => {
-        collection: BTreeSet;
-        element: T;
-        constraints: [T: Arbitrary + Ord];
-        method: insert;
+        generator.accept(values)
     }
 }
 
-define_map_collection_strategies! {
-    hash_map => {
-        collection: HashMap;
-        key: K;
-        value: V;
-        key_constraints: [K: Arbitrary + Eq + Hash,];
-        value_constraints: [V: Arbitrary,];
-        method: insert;
+pub fn binary_heap<T, S, H>(
+    mut strategy: S,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<BinaryHeap<T>>
+where
+    T: Ord,
+    S: FnMut(&mut DefaultGenerator) -> Generation<T>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let len = hint.pick(&mut generator.rng);
+        let mut heap = BinaryHeap::with_capacity(len);
+
+        for _ in 0..len {
+            match strategy(generator) {
+                Generation::Accepted { value, .. } => heap.push(value),
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: heap,
+                    };
+                }
+            }
+        }
+
+        generator.accept(heap)
     }
-    b_tree_map => {
-        collection: BTreeMap;
-        key: K;
-        value: V;
-        key_constraints: [K: Arbitrary + Ord,];
-        value_constraints: [V: Arbitrary,];
-        method: insert;
+}
+
+pub fn hash_set<T, S, H>(
+    mut strategy: S,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<HashSet<T>>
+where
+    T: Eq + Hash,
+    S: FnMut(&mut DefaultGenerator) -> Generation<T>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let target_len = hint.pick(&mut generator.rng);
+        let mut set = HashSet::with_capacity(target_len);
+
+        if target_len == 0 {
+            return generator.accept(set);
+        }
+
+        let mut attempts_remaining = MAX_STRATEGY_ATTEMPTS * target_len.max(1);
+
+        while set.len() < target_len {
+            if attempts_remaining == 0 {
+                break;
+            }
+
+            attempts_remaining -= 1;
+
+            match strategy(generator) {
+                Generation::Accepted { value, .. } => {
+                    set.insert(value);
+                }
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: set,
+                    };
+                }
+            }
+        }
+
+        generator.accept(set)
+    }
+}
+
+pub fn btree_set<T, S, H>(
+    mut strategy: S,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<BTreeSet<T>>
+where
+    T: Ord,
+    S: FnMut(&mut DefaultGenerator) -> Generation<T>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let target_len = hint.pick(&mut generator.rng);
+        let mut set = BTreeSet::new();
+
+        if target_len == 0 {
+            return generator.accept(set);
+        }
+
+        let mut attempts_remaining = MAX_STRATEGY_ATTEMPTS * target_len.max(1);
+
+        while set.len() < target_len {
+            if attempts_remaining == 0 {
+                break;
+            }
+            attempts_remaining -= 1;
+
+            match strategy(generator) {
+                Generation::Accepted { value, .. } => {
+                    set.insert(value);
+                }
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: set,
+                    };
+                }
+            }
+        }
+
+        generator.accept(set)
+    }
+}
+
+pub fn hash_map<K, V, KS, VS, H>(
+    mut key_strategy: KS,
+    mut value_strategy: VS,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<HashMap<K, V>>
+where
+    K: Eq + Hash,
+    KS: FnMut(&mut DefaultGenerator) -> Generation<K>,
+    VS: FnMut(&mut DefaultGenerator) -> Generation<V>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let target_len = hint.pick(&mut generator.rng);
+        let mut map = HashMap::with_capacity(target_len);
+
+        if target_len == 0 {
+            return generator.accept(map);
+        }
+
+        let mut attempts_remaining = MAX_STRATEGY_ATTEMPTS * target_len.max(1);
+
+        while map.len() < target_len {
+            if attempts_remaining == 0 {
+                break;
+            }
+            attempts_remaining -= 1;
+
+            let key = match key_strategy(generator) {
+                Generation::Accepted { value, .. } => value,
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: map,
+                    };
+                }
+            };
+
+            let value = match value_strategy(generator) {
+                Generation::Accepted { value, .. } => value,
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: map,
+                    };
+                }
+            };
+
+            map.insert(key, value);
+        }
+
+        generator.accept(map)
+    }
+}
+
+pub fn btree_map<K, V, KS, VS, H>(
+    mut key_strategy: KS,
+    mut value_strategy: VS,
+    hint: H,
+) -> impl FnMut(&mut DefaultGenerator) -> Generation<BTreeMap<K, V>>
+where
+    K: Ord,
+    KS: FnMut(&mut DefaultGenerator) -> Generation<K>,
+    VS: FnMut(&mut DefaultGenerator) -> Generation<V>,
+    H: SizeHint,
+{
+    move |generator: &mut DefaultGenerator| {
+        let target_len = hint.pick(&mut generator.rng);
+        let mut map = BTreeMap::new();
+
+        if target_len == 0 {
+            return generator.accept(map);
+        }
+
+        let mut attempts_remaining = MAX_STRATEGY_ATTEMPTS * target_len.max(1);
+
+        while map.len() < target_len {
+            if attempts_remaining == 0 {
+                break;
+            }
+            attempts_remaining -= 1;
+
+            let key = match key_strategy(generator) {
+                Generation::Accepted { value, .. } => value,
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: map,
+                    };
+                }
+            };
+
+            let value = match value_strategy(generator) {
+                Generation::Accepted { value, .. } => value,
+                Generation::Rejected {
+                    iteration, depth, ..
+                } => {
+                    return Generation::Rejected {
+                        iteration,
+                        depth,
+                        value: map,
+                    };
+                }
+            };
+
+            map.insert(key, value);
+        }
+
+        generator.accept(map)
     }
 }

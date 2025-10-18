@@ -6,14 +6,14 @@ pub mod strategies;
 pub use arbitrary::Arbitrary;
 pub use estoa_proptest_macros::proptest;
 
-pub fn random<T: Arbitrary>() -> T {
+pub fn random<T: Arbitrary>() -> strategies::Generation<T> {
     T::random()
 }
 
-pub fn arbitrary<T: Arbitrary, R: RngCore + CryptoRng + ?Sized>(
-    rng: &mut R,
-) -> T {
-    T::arbitrary(rng)
+pub fn arbitrary<T: Arbitrary, R: RngCore + CryptoRng>(
+    generator: &mut strategies::Generator<R>,
+) -> strategies::Generation<T> {
+    T::generate(generator)
 }
 
 pub fn rng() -> ThreadRng {

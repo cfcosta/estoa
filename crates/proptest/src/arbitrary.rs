@@ -13,6 +13,8 @@ use rand::{
     distr::{SampleString, StandardUniform},
 };
 
+use crate::strategies::{Generation, Generator};
+
 pub(crate) const STRING_MAX_LEN: usize = 128;
 pub(crate) const COLLECTION_MAX_LEN: usize = 32;
 
@@ -22,11 +24,17 @@ where
 {
     fn arbitrary<R: RngCore + CryptoRng + ?Sized>(rng: &mut R) -> Self;
 
-    fn random() -> Self
-    where
-        Self: Sized,
-    {
-        Self::arbitrary(&mut rand::rng())
+    fn generate<R: RngCore + CryptoRng>(
+        generator: &mut Generator<R>,
+    ) -> Generation<Self> {
+        let value = Self::arbitrary(&mut generator.rng);
+        generator.accept(value)
+    }
+
+    fn random() -> Generation<Self> {
+        let mut generator =
+            Generator::build_with_limit(rand::rng(), usize::MAX);
+        Self::generate(&mut generator)
     }
 }
 

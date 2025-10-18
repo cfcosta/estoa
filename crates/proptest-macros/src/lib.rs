@@ -153,7 +153,6 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
     function.sig.ident = inner_ident.clone();
     function.vis = syn::Visibility::Inherited;
 
-    let uses_strategies = arguments.iter().any(|arg| arg.strategy.is_some());
     let mut bindings = Vec::new();
     let mut binding_idents = Vec::new();
 
@@ -164,13 +163,19 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         let binding_stmt = match &argument.strategy {
             Some(expr) => {
+                let strategy_ident = format_ident!("__estoa_strategy_{index}");
                 quote! {
+                    let mut #strategy_ident = (#expr);
                     let #binding_ident: #ty = {
                         let mut __estoa_attempts = 0usize;
                         loop {
-                            match (#expr)(&mut generator) {
-                                ::estoa_proptest::strategies::Generation::Accepted { value, .. } => break value,
+                            match #strategy_ident(&mut generator) {
+                                ::estoa_proptest::strategies::Generation::Accepted { value, .. } => {
+                                    generator.advance_iteration();
+                                    break value;
+                                }
                                 ::estoa_proptest::strategies::Generation::Rejected { iteration, depth, .. } => {
+                                    generator.advance_iteration();
                                     __estoa_attempts += 1;
                                     if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
                                         panic!(
@@ -188,14 +193,33 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                     };
                 }
             }
-            None if uses_strategies => {
-                quote! {
-                    let #binding_ident: #ty = ::estoa_proptest::arbitrary(&mut generator.rng);
-                }
-            }
             None => {
                 quote! {
-                    let #binding_ident: #ty = ::estoa_proptest::arbitrary(&mut rng);
+                    let #binding_ident: #ty = {
+                        let mut __estoa_attempts = 0usize;
+                        loop {
+                            match ::estoa_proptest::arbitrary(&mut generator) {
+                                ::estoa_proptest::strategies::Generation::Accepted { value, .. } => {
+                                    generator.advance_iteration();
+                                    break value;
+                                }
+                                ::estoa_proptest::strategies::Generation::Rejected { iteration, depth, .. } => {
+                                    generator.advance_iteration();
+                                    __estoa_attempts += 1;
+                                    if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
+                                        panic!(
+                                            "#[proptest] strategy rejected value after {} attempts (iteration {}, depth {}; limit {})",
+                                            __estoa_attempts,
+                                            iteration,
+                                            depth,
+                                            __ESTOA_REJECTION_LIMIT,
+                                        );
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                    };
                 }
             }
         };
@@ -205,16 +229,12 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let outer_rng_setup = if bindings.is_empty() {
         quote! {}
-    } else if uses_strategies {
+    } else {
         quote! {
             let mut generator = ::estoa_proptest::strategies::Generator::build_with_limit(
                 ::estoa_proptest::rng(),
                 __ESTOA_RECURSION_LIMIT,
             );
-        }
-    } else {
-        quote! {
-            let mut rng = ::estoa_proptest::rng();
         }
     };
 

@@ -1,3 +1,10 @@
+#![allow(
+    clippy::type_complexity,
+    unused_macro_rules,
+    clippy::absurd_extreme_comparisons,
+    clippy::too_many_arguments
+)]
+
 use std::{
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque},
     hint::black_box,
@@ -26,49 +33,49 @@ impl Arbitrary for User {
 }
 
 #[test]
-fn test_user_created_random() {
-    let _ = User::random();
+fn test_custom_arbitrary_implementation() {
+    let _ = User::random().take();
 }
 
 #[test]
-fn test_primitives_random() {
-    let _: () = random();
-    let _: bool = random();
-    let _: char = random();
-    let _: u8 = random();
-    let _: u16 = random();
-    let _: u32 = random();
-    let _: u64 = random();
-    let _: u128 = random();
-    let _: usize = random();
-    let _: i8 = random();
-    let _: i16 = random();
-    let _: i32 = random();
-    let _: i64 = random();
-    let _: i128 = random();
-    let _: isize = random();
-    let _: f32 = random();
-    let _: f64 = random();
-    let _: String = random();
+fn test_generate_primitive_types() {
+    let _: () = random().take();
+    let _: bool = random().take();
+    let _: char = random().take();
+    let _: u8 = random().take();
+    let _: u16 = random().take();
+    let _: u32 = random().take();
+    let _: u64 = random().take();
+    let _: u128 = random().take();
+    let _: usize = random().take();
+    let _: i8 = random().take();
+    let _: i16 = random().take();
+    let _: i32 = random().take();
+    let _: i64 = random().take();
+    let _: i128 = random().take();
+    let _: isize = random().take();
+    let _: f32 = random().take();
+    let _: f64 = random().take();
+    let _: String = random().take();
 }
 
 #[test]
-fn test_generic_random() {
-    let _: Option<u8> = random();
-    let _: Result<String, u32> = random();
-    let _: Box<u16> = random();
-    let _: Rc<i32> = random();
-    let _: Arc<u64> = random();
-    let _: Vec<u8> = random();
-    let _: VecDeque<u16> = random();
-    let _: BinaryHeap<i32> = random();
-    let _: HashSet<u32> = random();
-    let _: BTreeSet<i64> = random();
-    let _: HashMap<u8, u16> = random();
-    let _: BTreeMap<u32, i32> = random();
-    let _: [u8; 8] = random();
-    let _: (u8, String) = random();
-    let _: (u8, u16, u32, u64) = random();
+fn test_generate_generic_types() {
+    let _: Option<u8> = random().take();
+    let _: Result<String, u32> = random().take();
+    let _: Box<u16> = random().take();
+    let _: Rc<i32> = random().take();
+    let _: Arc<u64> = random().take();
+    let _: Vec<u8> = random().take();
+    let _: VecDeque<u16> = random().take();
+    let _: BinaryHeap<i32> = random().take();
+    let _: HashSet<u32> = random().take();
+    let _: BTreeSet<i64> = random().take();
+    let _: HashMap<u8, u16> = random().take();
+    let _: BTreeMap<u32, i32> = random().take();
+    let _: [u8; 8] = random().take();
+    let _: (u8, String) = random().take();
+    let _: (u8, u16, u32, u64) = random().take();
     let _: (
         u8,
         u16,
@@ -77,11 +84,11 @@ fn test_generic_random() {
         String,
         BTreeMap<u8, String>,
         HashMap<String, HashMap<String, u64>>,
-    ) = random();
+    ) = random().take();
 }
 
 #[proptest(cases = 1)]
-fn test_primitives_arbitrary(
+fn test_arbitrary_generation_with_macro(
     unit: (),
     boolean: bool,
     character: char,
@@ -118,5 +125,6 @@ fn test_primitives_arbitrary(
     black_box(&isize_value);
     black_box(&f32_value);
     black_box(&f64_value);
+
     assert!(string_value.capacity() >= string_value.len());
 }

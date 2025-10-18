@@ -24,6 +24,32 @@ impl<T> Generation<T> {
             Generation::Rejected { value: v, .. } => v,
         }
     }
+
+    pub fn map<U, F>(self, f: F) -> Generation<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Generation::Accepted {
+                iteration,
+                depth,
+                value,
+            } => Generation::Accepted {
+                iteration,
+                depth,
+                value: f(value),
+            },
+            Generation::Rejected {
+                iteration,
+                depth,
+                value,
+            } => Generation::Rejected {
+                iteration,
+                depth,
+                value: f(value),
+            },
+        }
+    }
 }
 
 pub struct Generator<R> {
@@ -51,28 +77,28 @@ impl<R: RngCore + CryptoRng> Generator<R> {
         self.iteration
     }
 
+    pub fn advance_iteration(&mut self) {
+        self.iteration = self.iteration.saturating_add(1);
+    }
+
     pub fn depth(&self) -> usize {
         self.depth
     }
 
-    pub fn accept<T>(&mut self, value: T) -> Generation<T> {
-        let generation = Generation::Accepted {
+    pub fn accept<T>(&self, value: T) -> Generation<T> {
+        Generation::Accepted {
             iteration: self.iteration,
             depth: self.depth,
             value,
-        };
-        self.iteration += 1;
-        generation
+        }
     }
 
-    pub fn reject<T>(&mut self, value: T) -> Generation<T> {
-        let generation = Generation::Rejected {
+    pub fn reject<T>(&self, value: T) -> Generation<T> {
+        Generation::Rejected {
             iteration: self.iteration,
             depth: self.depth,
             value,
-        };
-        self.iteration += 1;
-        generation
+        }
     }
 
     pub fn recurse<F, T>(&mut self, f: F) -> T
