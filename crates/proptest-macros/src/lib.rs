@@ -157,17 +157,17 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut binding_idents = Vec::new();
 
     for (index, argument) in arguments.iter().enumerate() {
-        let binding_ident = format_ident!("__estoa_proptest_binding_{index}");
+        let binding_ident = format_ident!("__proptest_binding_{index}");
         binding_idents.push(binding_ident.clone());
         let ty = &argument.ty;
 
         let binding_stmt = match &argument.strategy {
             Some(expr) => {
-                let strategy_ident = format_ident!("__estoa_strategy_{index}");
+                let strategy_ident = format_ident!("__strategy_{index}");
                 quote! {
                     let mut #strategy_ident = ::estoa_proptest::strategy::runtime::adapt(#expr);
                     let #binding_ident: #ty = {
-                        let mut __estoa_attempts = 0usize;
+                        let mut __attempts = 0usize;
                         loop {
                             match ::estoa_proptest::strategy::runtime::execute(
                                 &mut #strategy_ident,
@@ -179,14 +179,14 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 }
                                 ::estoa_proptest::strategy::runtime::Generation::Rejected { iteration, depth, .. } => {
                                     generator.advance_iteration();
-                                    __estoa_attempts += 1;
-                                    if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
+                                    __attempts += 1;
+                                    if __attempts >= __REJECTION_LIMIT {
                                         panic!(
                                             "#[proptest] strategy rejected value after {} attempts (iteration {}, depth {}; limit {})",
-                                            __estoa_attempts,
+                                            __attempts,
                                             iteration,
                                             depth,
-                                            __ESTOA_REJECTION_LIMIT,
+                                            __REJECTION_LIMIT,
                                         );
                                     }
                                     continue;
@@ -199,7 +199,7 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
             None => {
                 quote! {
                     let #binding_ident: #ty = {
-                        let mut __estoa_attempts = 0usize;
+                        let mut __attempts = 0usize;
                         loop {
                             match ::estoa_proptest::strategy::runtime::from_arbitrary(&mut generator) {
                                 ::estoa_proptest::strategy::runtime::Generation::Accepted { value, .. } => {
@@ -208,14 +208,14 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 }
                                 ::estoa_proptest::strategy::runtime::Generation::Rejected { iteration, depth, .. } => {
                                     generator.advance_iteration();
-                                    __estoa_attempts += 1;
-                                    if __estoa_attempts >= __ESTOA_REJECTION_LIMIT {
+                                    __attempts += 1;
+                                    if __attempts >= __REJECTION_LIMIT {
                                         panic!(
                                             "#[proptest] strategy rejected value after {} attempts (iteration {}, depth {}; limit {})",
-                                            __estoa_attempts,
+                                            __attempts,
                                             iteration,
                                             depth,
-                                            __ESTOA_REJECTION_LIMIT,
+                                            __REJECTION_LIMIT,
                                         );
                                     }
                                     continue;
@@ -234,9 +234,10 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     } else {
         quote! {
-            let mut generator = ::estoa_proptest::strategy::runtime::Generator::build_with_limit(
+            let mut generator = ::estoa_proptest::strategy::runtime::Generator::build(
                 ::estoa_proptest::rng(),
-                __ESTOA_RECURSION_LIMIT,
+            ).with_limit(
+                __RECURSION_LIMIT,
             );
         }
     };
@@ -250,11 +251,11 @@ pub fn proptest(attr: TokenStream, item: TokenStream) -> TokenStream {
         #( #outer_attrs )*
         #[test]
         #vis fn #original_ident() {
-            const __ESTOA_CASES: usize = #cases_tokens;
-            const __ESTOA_RECURSION_LIMIT: usize = #recursion_limit_tokens;
-            const __ESTOA_REJECTION_LIMIT: usize = #rejection_limit_tokens;
-            for __estoa_case in 0..__ESTOA_CASES {
-                let _ = __estoa_case;
+            const __CASES: usize = #cases_tokens;
+            const __RECURSION_LIMIT: usize = #recursion_limit_tokens;
+            const __REJECTION_LIMIT: usize = #rejection_limit_tokens;
+            for __case in 0..__CASES {
+                let _ = __case;
                 #outer_rng_setup
                 #( #bindings )*
                 #inner_ident( #( #binding_idents ),* );
@@ -342,7 +343,7 @@ impl MacroConfig {
         match self.rejection_limit {
             Some(value) => quote! { #value },
             None => {
-                quote! { ::estoa_proptest::strategy::runtime::MAX_STRATEGY_ATTEMPTS }
+                quote! { 10000 }
             }
         }
     }

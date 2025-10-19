@@ -21,7 +21,7 @@ fn string_never_shrinks_below_min_len() {
 #[test]
 fn any_string_respects_fixed_len_hint() {
     let mut strategy = AnyString::new(4usize..=4usize);
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
     let value_tree: StringValueTree = match strategy.new_tree(&mut generator) {
         Generation::Accepted { value, .. } => value,
         Generation::Rejected { .. } => {

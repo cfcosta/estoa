@@ -35,7 +35,7 @@ impl Strategy for DepthTwo {
 
 #[test]
 fn depth_zero_outside_recurse() {
-    let generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let generator = Generator::build(rand::rng());
     match generator.accept(ConstantValueTree::new(0u8)) {
         Generation::Accepted { depth, .. } => assert_eq!(depth, 0),
         Generation::Rejected { .. } => panic!("unexpected rejection"),
@@ -44,7 +44,7 @@ fn depth_zero_outside_recurse() {
 
 #[test]
 fn depth_one_inside_recurse() {
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
     match DepthOne.new_tree(&mut generator) {
         Generation::Accepted { depth, .. } => assert_eq!(depth, 1),
         Generation::Rejected { .. } => panic!("unexpected rejection"),
@@ -53,7 +53,7 @@ fn depth_one_inside_recurse() {
 
 #[test]
 fn depth_two_nested_recurse() {
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
     match DepthTwo.new_tree(&mut generator) {
         Generation::Accepted { depth, .. } => assert_eq!(depth, 2),
         Generation::Rejected { .. } => panic!("unexpected rejection"),

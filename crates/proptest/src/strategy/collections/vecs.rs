@@ -596,8 +596,7 @@ mod tests {
     fn vec_deque_strategy_yields_len_in_range() {
         let mut strategy =
             VecDequeStrategy::new(AnyI32::default(), 1usize..=3usize);
-        let mut generator =
-            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let mut generator = Generator::build(crate::rng());
         let tree = match strategy.new_tree(&mut generator) {
             Generation::Accepted { value, .. } => value,
             Generation::Rejected { .. } => panic!("unexpected rejection"),
@@ -610,8 +609,7 @@ mod tests {
     fn binary_heap_strategy_yields_len_in_range() {
         let mut strategy =
             BinaryHeapStrategy::new(AnyI32::default(), 1usize..=3usize);
-        let mut generator =
-            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let mut generator = Generator::build(crate::rng());
         let tree = match strategy.new_tree(&mut generator) {
             Generation::Accepted { value, .. } => value,
             Generation::Rejected { .. } => panic!("unexpected rejection"),
@@ -623,8 +621,7 @@ mod tests {
     #[test]
     fn vec_strategy_builds_length_in_range() {
         let mut strategy = VecStrategy::new(AnyI32::default(), 2usize..=4usize);
-        let mut generator =
-            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let mut generator = Generator::build(crate::rng());
         let tree = match strategy.new_tree(&mut generator) {
             Generation::Accepted { value, .. } => value,
             Generation::Rejected { .. } => panic!("unexpected rejection"),

@@ -16,7 +16,7 @@ fn collect_candidates(mut tree: impl ValueTree<Value = char>) -> Vec<char> {
 #[test]
 fn char_candidates_do_not_include_original() {
     let mut strategy = AnyChar::new('0'..='9');
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
     let tree = match strategy.new_tree(&mut generator) {
         Generation::Accepted { value, .. } => value,
         Generation::Rejected { .. } => panic!("strategy rejected"),

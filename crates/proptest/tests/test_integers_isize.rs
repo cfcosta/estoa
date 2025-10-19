@@ -17,7 +17,7 @@ where
 #[test]
 fn any_isize_shrinks_to_zero_when_range_spans_zero() {
     let mut strategy = AnyIsize::new(-10..=10);
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
 
     let tree = match strategy.new_tree(&mut generator) {
         Generation::Accepted { value, .. } => value,
@@ -30,7 +30,7 @@ fn any_isize_shrinks_to_zero_when_range_spans_zero() {
 #[test]
 fn any_isize_shrinks_to_lower_bound_when_positive_only() {
     let mut strategy = AnyIsize::new(5..=12);
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
 
     let tree = match strategy.new_tree(&mut generator) {
         Generation::Accepted { value, .. } => value,
@@ -45,7 +45,7 @@ fn any_isize_shrinks_to_lower_bound_when_positive_only() {
 #[test]
 fn any_isize_shrinks_to_upper_bound_when_negative_only() {
     let mut strategy = AnyIsize::new(-12..=-5);
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
 
     let tree = match strategy.new_tree(&mut generator) {
         Generation::Accepted { value, .. } => value,

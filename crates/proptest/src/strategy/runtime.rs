@@ -5,7 +5,7 @@ use rand::{CryptoRng, RngCore, rngs::ThreadRng};
 use super::{Strategy, ValueTree};
 use crate::arbitrary::Arbitrary;
 
-pub const MAX_STRATEGY_ATTEMPTS: usize = 64;
+pub(crate) const MAX_STRATEGY_ATTEMPTS: usize = 64;
 
 pub enum Generation<T> {
     Accepted {
@@ -64,16 +64,17 @@ pub struct Generator<R> {
 
 impl<R: RngCore + CryptoRng> Generator<R> {
     pub fn build(rng: R) -> Self {
-        Self::build_with_limit(rng, usize::MAX)
-    }
-
-    pub fn build_with_limit(rng: R, recursion_limit: usize) -> Self {
         Self {
             rng,
             iteration: 0,
             depth: 0,
-            recursion_limit,
+            recursion_limit: 10000,
         }
+    }
+
+    pub fn with_limit(mut self, recursion_limit: usize) -> Self {
+        self.recursion_limit = recursion_limit;
+        self
     }
 
     pub fn iteration(&self) -> usize {
@@ -152,10 +153,6 @@ impl<'a, R: RngCore + CryptoRng> DerefMut for DepthGuard<'a, R> {
 
 pub type DefaultGenerator = Generator<ThreadRng>;
 
-pub fn build_default_generator(recursion_limit: usize) -> DefaultGenerator {
-    Generator::build_with_limit(rand::rng(), recursion_limit)
-}
-
 pub struct IntegratedAdapter<S>
 where
     S: Strategy,
@@ -200,20 +197,12 @@ where
     }
 }
 
-pub fn adapt_strategy<S>(strategy: S) -> IntegratedAdapter<S>
-where
-    S: Strategy,
-    S::Value: Clone,
-{
-    IntegratedAdapter::new(strategy)
-}
-
 pub fn adapt<S>(strategy: S) -> IntegratedAdapter<S>
 where
     S: Strategy,
     S::Value: Clone,
 {
-    adapt_strategy(strategy)
+    IntegratedAdapter::new(strategy)
 }
 
 pub fn execute<S>(

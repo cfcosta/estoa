@@ -8,7 +8,7 @@ use estoa_proptest::strategy::{
 #[test]
 fn floats_shrink_monotonically_and_end_at_anchor() {
     let mut strategy = AnyF64::new(5.0..=10.0);
-    let mut generator = Generator::build_with_limit(rand::rng(), usize::MAX);
+    let mut generator = Generator::build(rand::rng());
 
     let mut tree = match strategy.new_tree(&mut generator) {
         Generation::Accepted { value, .. } => value,

@@ -454,8 +454,7 @@ mod tests {
             AnyI32::default(),
             1usize..=3usize,
         );
-        let mut generator =
-            Generator::build_with_limit(crate::rng(), usize::MAX);
+        let mut generator = Generator::build(crate::rng());
         let len = match strategy.new_tree(&mut generator) {
             Generation::Accepted { value, .. } => value.current().len(),
             Generation::Rejected { .. } => panic!("unexpected rejection"),

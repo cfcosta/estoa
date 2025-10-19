@@ -32,8 +32,7 @@ where
     }
 
     fn random() -> Generation<Self> {
-        let mut generator =
-            Generator::build_with_limit(rand::rng(), usize::MAX);
+        let mut generator = Generator::build(rand::rng());
         Self::generate(&mut generator)
     }
 }

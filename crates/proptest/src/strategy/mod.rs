@@ -12,10 +12,7 @@ pub use runtime::{
     Generation,
     Generator,
     IntegratedAdapter,
-    MAX_STRATEGY_ATTEMPTS,
     adapt,
-    adapt_strategy,
-    build_default_generator,
     execute,
     from_arbitrary,
 };
