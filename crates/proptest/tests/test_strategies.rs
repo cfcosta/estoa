@@ -31,33 +31,6 @@ impl estoa_proptest::strategy::Strategy for DifferentStrategy {
     }
 }
 
-#[derive(Default)]
-struct StaticTree<T> {
-    value: T,
-}
-
-impl<T> StaticTree<T> {
-    fn new(value: T) -> Self {
-        Self { value }
-    }
-}
-
-impl<T: Clone> ValueTree for StaticTree<T> {
-    type Value = T;
-
-    fn current(&self) -> &Self::Value {
-        &self.value
-    }
-
-    fn simplify(&mut self) -> bool {
-        false
-    }
-
-    fn complicate(&mut self) -> bool {
-        false
-    }
-}
-
 #[proptest]
 fn test_different(#[strategy(DifferentStrategy)] (a, b): (u8, u8)) {
     assert_ne!(a, b);
