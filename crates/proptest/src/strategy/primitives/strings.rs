@@ -6,6 +6,7 @@ use super::{AnyChar, IntValueTree};
 use crate::{
     arbitrary::STRING_MAX_LEN,
     strategy::{
+        SizeHint,
         Strategy,
         ValueTree,
         runtime::{Generation, Generator},
@@ -53,10 +54,13 @@ pub struct AnyString {
 }
 
 impl AnyString {
-    pub fn new(len_range: RangeInclusive<usize>) -> Self {
+    pub fn new<H>(len_hint: H) -> Self
+    where
+        H: SizeHint,
+    {
         Self {
             char_strategy: AnyChar::default(),
-            len_range,
+            len_range: len_hint.to_inclusive(),
         }
     }
 }

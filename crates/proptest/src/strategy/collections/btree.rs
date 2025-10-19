@@ -5,6 +5,7 @@ use std::{
 
 use super::vecs::{build_drop_plan, sample_length};
 use crate::strategy::{
+    SizeHint,
     Strategy,
     ValueTree,
     runtime::{Generation, Generator, MAX_STRATEGY_ATTEMPTS},
@@ -25,8 +26,14 @@ where
     S: Strategy,
     S::Value: Clone + Ord,
 {
-    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
-        Self { element, len_range }
+    pub fn new<H>(element: S, size_hint: H) -> Self
+    where
+        H: SizeHint,
+    {
+        Self {
+            element,
+            len_range: size_hint.to_inclusive(),
+        }
     }
 }
 
@@ -328,11 +335,14 @@ where
     KS::Value: Clone + Ord,
     VS::Value: Clone,
 {
-    pub fn new(key: KS, value: VS, len_range: RangeInclusive<usize>) -> Self {
+    pub fn new<H>(key: KS, value: VS, size_hint: H) -> Self
+    where
+        H: SizeHint,
+    {
         Self {
             key,
             value,
-            len_range,
+            len_range: size_hint.to_inclusive(),
         }
     }
 }

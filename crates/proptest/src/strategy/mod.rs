@@ -1,6 +1,7 @@
 mod collections;
 mod primitives;
 pub mod runtime;
+mod size_hint;
 mod traits;
 
 pub use collections::*;
@@ -12,11 +13,11 @@ pub use runtime::{
     Generator,
     IntegratedAdapter,
     MAX_STRATEGY_ATTEMPTS,
-    SizeHint,
     adapt,
     adapt_strategy,
     build_default_generator,
     execute,
     from_arbitrary,
 };
+pub use size_hint::SizeHint;
 pub use traits::{Strategy, ValueTree};

@@ -5,6 +5,7 @@ use std::{
 
 use super::super::primitives::AnyUsize;
 use crate::strategy::{
+    SizeHint,
     Strategy,
     ValueTree,
     runtime::{Generation, Generator},
@@ -48,8 +49,14 @@ where
     S: Strategy,
     S::Value: Clone,
 {
-    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
-        Self { element, len_range }
+    pub fn new<H>(element: S, size_hint: H) -> Self
+    where
+        H: SizeHint,
+    {
+        Self {
+            element,
+            len_range: size_hint.to_inclusive(),
+        }
     }
 }
 
@@ -302,9 +309,12 @@ where
     S: Strategy,
     S::Value: Clone,
 {
-    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
+    pub fn new<H>(element: S, size_hint: H) -> Self
+    where
+        H: SizeHint,
+    {
         Self {
-            inner: VecStrategy::new(element, len_range),
+            inner: VecStrategy::new(element, size_hint),
         }
     }
 }
@@ -396,9 +406,12 @@ where
     S: Strategy,
     S::Value: Clone + Ord,
 {
-    pub fn new(element: S, len_range: RangeInclusive<usize>) -> Self {
+    pub fn new<H>(element: S, size_hint: H) -> Self
+    where
+        H: SizeHint,
+    {
         Self {
-            inner: VecStrategy::new(element, len_range),
+            inner: VecStrategy::new(element, size_hint),
         }
     }
 }
