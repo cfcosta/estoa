@@ -1,0 +1,5 @@
+error: `cases` must be at least 1
+ --> tests/ui/cases_zero.rs:3:20
+  |
+3 | #[proptest(cases = 0)]
+  |                    ^

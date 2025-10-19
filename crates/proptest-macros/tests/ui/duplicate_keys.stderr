@@ -1,0 +1,5 @@
+error: `cases` specified more than once
+ --> tests/ui/duplicate_keys.rs:3:23
+  |
+3 | #[proptest(cases = 2, cases = 3)]
+  |                       ^^^^^

@@ -1,0 +1,5 @@
+error: `rejection_limit` must be at least 1
+ --> tests/ui/rejection_limit_zero.rs:3:30
+  |
+3 | #[proptest(rejection_limit = 0)]
+  |                              ^

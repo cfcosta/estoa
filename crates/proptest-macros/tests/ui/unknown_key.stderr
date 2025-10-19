@@ -1,0 +1,5 @@
+error: unknown #[proptest] option `not_a_key`
+ --> tests/ui/unknown_key.rs:3:12
+  |
+3 | #[proptest(not_a_key = 1)]
+  |            ^^^^^^^^^

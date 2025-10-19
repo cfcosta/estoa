@@ -1,0 +1,5 @@
+error: `recursion_limit` must be at least 1
+ --> tests/ui/recursion_limit_zero.rs:3:30
+  |
+3 | #[proptest(recursion_limit = 0)]
+  |                              ^
