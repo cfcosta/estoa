@@ -1,19 +1,21 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Estoa is a Cargo workspace defined in `Cargo.toml`, with each component living under `crates/`. Core runtime logic belongs in domain crates such as `crdts`, `codec`, and `storage`; CLI entry points sit in `cli/src`, and reusable testing helpers live in `proptest` and `proptest-macros`. Use `src/` for library code and `tests/` for integration or property suites; keep shared fixtures in crate-specific modules instead of the workspace root.
+Estoa is a Cargo workspace defined in `Cargo.toml`, with each crate under `crates/`. Core runtime code belongs in domain crates (`crdts`, `codec`, `storage`), while CLI entry points live in `cli/src`. Keep library code in each crate’s `src/`, integration or property tests in `tests/`, and share test fixtures through crate-local modules rather than the workspace root. When adding new features, co-locate modules by domain and expose only the minimal public surface via targeted `pub use` exports.
+
+## Development Environment
+Enter the pinned toolchain with `nix develop` to load Rust, cargo-nextest, and helper scripts. Use this shell for consistency across platforms. Run editors or language servers inside the shell so they inherit the same toolchain and workspace metadata.
 
 ## Build, Test, and Development Commands
-- `cargo clippy --all --all-targets --all-features` to check builds every time.
-- `cargo fmt --all` to format all the files, which you should do every time.
-- `cargo nextest run` uses the optional Nextest runner installed in the dev shell for faster iteration.
-Enter the Nix development shell with `nix develop` to load the pinned toolchain and helper utilities.
+- `cargo clippy --all --all-targets --all-features`: lint every crate and target before submitting changes.
+- `cargo fmt --all`: format according to `rustfmt.toml` (4-space indent, 80-column width, grouped imports).
+- `cargo nextest run`: execute the full test suite quickly; fall back to `cargo test --workspace` if Nextest is unavailable.
 
 ## Coding Style & Naming Conventions
-Formatting is governed by `rustfmt.toml`, enforcing 4-space indentation, 80-character width, and grouped imports; run `cargo fmt --all` or `nix fmt` before pushing. Favor `snake_case` modules, `CamelCase` types, and concise enums that mirror CRDT concepts. Co-locate feature-specific code inside the owning crate and expose only intentional APIs via minimal `pub use` statements.
+Follow Rust defaults: `snake_case` for modules and functions, `CamelCase` for types, concise enums mirroring CRDT operations. Prefer explicit module imports, keeping top-level re-exports lean. Avoid introducing Unicode unless already present. Document non-obvious logic with brief comments instead of line-by-line narration.
 
 ## Testing Guidelines
-Prefer focused unit tests inside `src/` modules (`mod tests { ... }`) and broader behaviour checks in `crates/*/tests/`. Property tests should use the `#[proptest]` macro from `estoa-proptest-macros` to cover randomised scenarios; seed determinism via `rng()` helpers when debugging failures. When adding new CRDT operations, pair unit coverage with a regression property asserting convergence.
+Place focused unit tests inline via `#[cfg(test)] mod tests` and broader behaviour checks in `crates/*/tests/`. Property-based suites should use the `#[proptest]` macro from `estoa-proptest-macros` and seed deterministically via provided RNG helpers when debugging failures. Always run `cargo nextest run` (or `cargo test --workspace`) before opening a pull request.
 
 ## Commit & Pull Request Guidelines
-Follow the existing `type(scope): summary` pattern, e.g. `feat(estoa-proptest): add random generator`, and compose imperative, present-tense summaries under 72 characters. Each pull request should link to any relevant issue, note behavioural changes, and describe the validation steps (`cargo test --workspace`, formatters run) in the description. Include screenshots or protocol traces when UI or networking behaviour changes, and keep PRs scoped to a single feature or fix.
+Write commit messages as `type(scope): summary`, keeping the imperative summary under 72 characters. Group work into narrowly scoped commits that reflect CRDT or storage boundaries. Pull requests must link related issues, describe behavioural changes, list validation commands (e.g., `cargo fmt --all`, `cargo clippy --all --all-targets --all-features`, `cargo nextest run`), and include screenshots or traces for UI or protocol changes. Keep PRs focused on a single feature or fix and note any follow-up work explicitly.
