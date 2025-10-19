@@ -1,25 +1,14 @@
 # Estoa
 
-Estoa is a framework for building peer to peer, anonymous and collaborative applications.
+>[!WARNING]
+> This project is currently under heavy development. Breakages are expected to happen all the time. You've been warned.
 
-## Features
+A very-opinionated framework to write applications that work offline, but sync once you get back online.
 
-- End-to-end encrypted communication between users.
-- Fast local storage.
-- P2P communication through hole-punching with QUIC.
+## Crates
 
-## CRDTs
+- [`estoa-proptest`](./crates/proptest): A minimal library to do property testing in Rust, with only 4 dependencies (3 to generate proc macros, and `rand`).
 
-- G-Counter
-- PN-Counter
-- LWW-Register
-- OR-Set
-- RGA
-- G-Set
-- OR-Map
+## License
 
-## Computed Datatypes
-
-- Text
-- Number
-- List
+This software is dual-licensed under both the [MIT](./LICENSE) and [Apache 2.0](./LICENSE-APACHE) licenses. This should cover most possible uses, but if you need an exception for any reason, please do get in touch.
