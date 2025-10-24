@@ -1,5 +1,6 @@
 [package]
 name = "estoa-storage"
+description = "Storage for Estoa applications"
 version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"

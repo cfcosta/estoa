@@ -1,5 +1,6 @@
 [package]
 name = "estoa-cli"
+description = "CLI interface to create and manage Estoa projects"
 version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
