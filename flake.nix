@@ -103,6 +103,8 @@
             cargo-machete
             cargo-mutants
             cargo-nextest
+            gh
+            release-plz
           ];
         };
       }
